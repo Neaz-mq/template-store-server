@@ -27,16 +27,31 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     
     const templateCollection = client.db("templateDb").collection("template");
+    const freeCollection = client.db("templateDb").collection("free");
+    const testimonialsCollection = client.db("templateDb").collection("testimonials");
 
     // template related apis
+
     app.get('/template', async (req, res) => {
         const result = await templateCollection.find().toArray();
         res.send(result);
       });
    
 
+  // free template related apis
+    app.get('/free', async (req, res) => {
+      const result = await freeCollection.find().toArray();
+      res.send(result);
+    });
+    
+   
+    // testimonials related apis
+    app.get('/testimonials', async (req, res) => {
+      const result = await testimonialsCollection.find().toArray();
+      res.send(result);
+    });
 
-
+   
 
 
     // Send a ping to confirm a successful connection
