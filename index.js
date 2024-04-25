@@ -40,16 +40,39 @@ async function run() {
       app.get('/template/:id', async (req, res) => {
         const id = req.params.id;
         const query = { _id: new ObjectId(id) }
-        const result = await templateCollection.findOne(query);
-        res.send(result);
-    })
 
-  // free template related apis
+        const options = {
+          // Include only the `title` and `imdb` fields in the returned document
+          projection: { name: 1, price: 1,  image: 1 },
+      };
+
+        const result = await templateCollection.findOne(query, options);
+        res.send(result);
+    });
+
+    // free template related apis
+
     app.get('/free', async (req, res) => {
       const result = await freeCollection.find().toArray();
       res.send(result);
     });
-    
+
+    app.get('/free/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+
+      const options = {
+        // Include only the `title` and `imdb` fields in the returned document
+        projection: { name: 1, price: 1,  image: 1 },
+    };
+
+      const result = await freeCollection.findOne(query, options);
+      res.send(result);
+  });
+
+
+
+
    
     // testimonials related apis
     app.get('/testimonials', async (req, res) => {
