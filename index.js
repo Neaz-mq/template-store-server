@@ -32,7 +32,7 @@ async function run() {
     const templateCollection = client.db("templateDb").collection("template");
     const freeCollection = client.db("templateDb").collection("free");
     const testimonialsCollection = client.db("templateDb").collection("testimonials");
-
+    const cartCollection = client.db("templateDb").collection("carts");
 
     // template related apis
 
@@ -80,6 +80,14 @@ async function run() {
     
     app.get('/testimonials', async (req, res) => {
       const result = await testimonialsCollection.find().toArray();
+      res.send(result);
+    });
+
+     // cart collection apis
+
+     app.post('/carts', async (req, res) => {
+      const cartItem = req.body;
+      const result = await cartCollection.insertOne(cartItem);
       res.send(result);
     });
 
