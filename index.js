@@ -152,6 +152,12 @@ async function run() {
       res.send(result);
     });
 
+    app.post('/template', verifyToken, verifyAdmin, async (req, res) => {
+      const temp = req.body;
+      const result = await templateCollection.insertOne(temp);
+      res.send(result);
+    });
+
 
     // free template related apis
 
