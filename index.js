@@ -158,6 +158,32 @@ async function run() {
       res.send(result);
     });
 
+    app.delete('/template/:id', verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await templateCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    app.patch('/template/:id', async (req, res) => {
+      const temp = req.body;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) }
+      const updatedDoc = {
+        $set: {
+          name: temp.name,
+          category: temp.category,
+          price: temp.price,
+          details: temp.details,
+          image: temp.image
+        }
+      }
+
+      const result = await templateCollection.updateOne(filter, updatedDoc)
+      res.send(result);
+    })
+
+
 
     // free template related apis
 
