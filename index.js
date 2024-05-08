@@ -134,7 +134,9 @@ async function run() {
       res.send(result);
     })
 
+
     // template related apis
+
     app.get('/template', async (req, res) => {
       const result = await templateCollection.find().toArray();
       res.send(result);
@@ -192,6 +194,13 @@ async function run() {
       res.send(result);
     });
 
+    app.post('/free', verifyToken, verifyAdmin, async (req, res) => {
+      const temp = req.body;
+      const result = await freeCollection.insertOne(temp);
+      res.send(result);
+    });
+
+     
 
     app.get('/free/:id', async (req, res) => {
       const id = req.params.id;
@@ -203,6 +212,32 @@ async function run() {
       const result = await freeCollection.findOne(query, options);
       res.send(result);
     });
+
+    app.delete('/free/:id', verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await freeCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    app.patch('/free/:id', async (req, res) => {
+      const temp = req.body;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) }
+      const updatedDoc = {
+        $set: {
+          name: temp.name,
+          category: temp.category,
+          price: temp.price,
+          details: temp.details,
+          image: temp.image
+        }
+      }
+
+      const result = await freeCollection.updateOne(filter, updatedDoc)
+      res.send(result);
+    })
+
 
 
     // testimonials related apis
