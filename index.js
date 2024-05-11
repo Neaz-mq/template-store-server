@@ -314,7 +314,39 @@ async function run() {
       };
       const deleteResult = await cartCollection.deleteMany(query);
       res.send({ paymentResult, deleteResult });
-  })
+  });
+
+    // stats or analytics
+    app.get('/admin-stats', async (req, res) => {
+      const users = await userCollection.estimatedDocumentCount();
+      const templates = await templateCollection.estimatedDocumentCount();
+      const orders = await paymentCollection.estimatedDocumentCount();
+
+      // this is not the best way
+      // const payments = await paymentCollection.find().toArray();
+      // const revenue = payments.reduce((total, payment) => total + payment.price, 0);
+
+      const result = await paymentCollection.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalRevenue: {
+              $sum: '$price'
+            }
+          }
+        }
+      ]).toArray();
+
+      const revenue = result.length > 0 ? result[0].totalRevenue : 0;
+
+      res.send({
+        users,
+        templates,
+        orders,
+        revenue
+      })
+    })
+
 
 
     // Send a ping to confirm a successful connection
