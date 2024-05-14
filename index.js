@@ -6,6 +6,10 @@ require('dotenv').config();
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const port = process.env.PORT || 5000;
 
+
+
+
+
 // middlewares
 app.use(cors());
 app.use(express.json());
@@ -313,6 +317,9 @@ async function run() {
         }
       };
       const deleteResult = await cartCollection.deleteMany(query);
+
+      
+
       res.send({ paymentResult, deleteResult });
   });
 
@@ -320,6 +327,7 @@ async function run() {
     app.get('/admin-stats', async (req, res) => {
       const users = await userCollection.estimatedDocumentCount();
       const templates = await templateCollection.estimatedDocumentCount();
+      const free = await freeCollection.estimatedDocumentCount();
       const orders = await paymentCollection.estimatedDocumentCount();
 
       // this is not the best way
@@ -342,9 +350,55 @@ async function run() {
       res.send({
         users,
         templates,
+        free,
         orders,
         revenue
       })
+    });
+
+
+    // using aggregate pipeline
+
+    app.get('/order-stats', verifyToken, verifyAdmin,  async (req, res) => {
+      const result = await paymentCollection.aggregate([
+        {
+          $unwind: "$tempItemIds"
+        },
+
+        {
+          $lookup: {
+            from: "template",
+            localField: "tempItemIds",
+            foreignField: "_id",
+            as: "templateItem"
+          }
+        },
+
+        {
+          $unwind: "$templateItem"
+        },
+        {
+          $group: {
+            _id: '$templateItem.category',
+            quantity: { $sum: 1 },
+            revenue: { $sum: '$templateItem.price' }
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            category: '$_id',
+            quantity: '$quantity',
+            revenue: '$revenue'
+          }
+        }
+        
+       
+       
+      ]).toArray();
+
+      res.send(result);
+
     })
 
 
