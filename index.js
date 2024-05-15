@@ -32,7 +32,7 @@ async function run() {
 
     // Connect the client to the server	(optional starting in v4.7)
 
-    
+
     const templateCollection = client.db("templateDb").collection("template");
     const userCollection = client.db("templateDb").collection("users");
     const freeCollection = client.db("templateDb").collection("free");
@@ -82,9 +82,9 @@ async function run() {
     }
 
 
-     // users related api
+    // users related api
 
-     app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
+    app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
       console.log(req.headers);
       const result = await userCollection.find().toArray();
       res.send(result);
@@ -106,7 +106,7 @@ async function run() {
       res.send({ admin });
     })
 
-     app.post('/users', async (req, res) => {
+    app.post('/users', async (req, res) => {
       const user = req.body;
       // insert email if user doesnt exists: 
       // you can do this many ways (1. email unique, 2. upsert 3. simple checking)
@@ -119,7 +119,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch('/users/admin/:id', verifyToken, verifyAdmin,  async (req, res) => {
+    app.patch('/users/admin/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
@@ -129,14 +129,29 @@ async function run() {
       }
       const result = await userCollection.updateOne(filter, updatedDoc);
       res.send(result);
-    })
+    });
 
     app.delete('/users/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const result = await userCollection.deleteOne(query);
       res.send(result);
-    })
+    });
+
+    // Add this route to fetch admin users
+app.get('/admins', verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const admins = await userCollection.find({ role: 'admin' }, { projection: { _id: 1, name: 1, email: 1 } }).toArray();
+    res.json(admins);
+  } catch (error) {
+    console.error('Error fetching admin users:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+
+
+
 
 
     // template related apis
@@ -204,7 +219,7 @@ async function run() {
       res.send(result);
     });
 
-     
+
 
     app.get('/free/:id', async (req, res) => {
       const id = req.params.id;
@@ -245,23 +260,23 @@ async function run() {
 
 
     // testimonials related apis
-    
+
     app.get('/testimonials', async (req, res) => {
       const result = await testimonialsCollection.find().toArray();
       res.send(result);
     });
 
 
-     // cart collection apis
+    // cart collection apis
 
-     app.get('/carts', async (req, res) => {
+    app.get('/carts', async (req, res) => {
       const email = req.query.email;
       const query = { email: email };
       const result = await cartCollection.find(query).toArray();
       res.send(result);
     });
 
-     app.post('/carts', async (req, res) => {
+    app.post('/carts', async (req, res) => {
       const cartItem = req.body;
       const result = await cartCollection.insertOne(cartItem);
       res.send(result);
@@ -300,7 +315,7 @@ async function run() {
       const result = await paymentCollection.find(query).toArray();
       res.send(result);
     });
-    
+
 
     app.post('/payments', async (req, res) => {
       const payment = req.body;
@@ -315,10 +330,10 @@ async function run() {
       };
       const deleteResult = await cartCollection.deleteMany(query);
 
-      
+
 
       res.send({ paymentResult, deleteResult });
-  });
+    });
 
     // stats or analytics
     app.get('/admin-stats', async (req, res) => {
@@ -356,7 +371,7 @@ async function run() {
 
     // using aggregate pipeline
 
-    app.get('/order-stats', verifyToken, verifyAdmin,  async (req, res) => {
+    app.get('/order-stats', verifyToken, verifyAdmin, async (req, res) => {
       const result = await paymentCollection.aggregate([
         {
           $unwind: "$tempItemIds"
@@ -389,9 +404,9 @@ async function run() {
             revenue: '$revenue'
           }
         }
-        
-       
-       
+
+
+
       ]).toArray();
 
       res.send(result);
