@@ -48,7 +48,8 @@ async function run() {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
       res.send({ token });
-    })
+    });
+
 
     // middlewares 
     const verifyToken = (req, res, next) => {
@@ -90,6 +91,7 @@ async function run() {
       res.send(result);
     });
 
+
     app.get('/users/admin/:email', verifyToken, async (req, res) => {
       const email = req.params.email;
 
@@ -104,7 +106,8 @@ async function run() {
         admin = user?.role === 'admin';
       }
       res.send({ admin });
-    })
+    });
+
 
     app.post('/users', async (req, res) => {
       const user = req.body;
@@ -119,6 +122,7 @@ async function run() {
       res.send(result);
     });
 
+
     app.patch('/users/admin/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
@@ -131,6 +135,7 @@ async function run() {
       res.send(result);
     });
 
+
     app.delete('/users/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
@@ -138,20 +143,18 @@ async function run() {
       res.send(result);
     });
 
+
     // Add this route to fetch admin users
-app.get('/admins', verifyToken, verifyAdmin, async (req, res) => {
-  try {
-    const admins = await userCollection.find({ role: 'admin' }, { projection: { _id: 1, name: 1, email: 1 } }).toArray();
-    res.json(admins);
-  } catch (error) {
-    console.error('Error fetching admin users:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
 
-
-
-
+    app.get('/admins', verifyToken, verifyAdmin, async (req, res) => {
+      try {
+        const admins = await userCollection.find({ role: 'admin' }, { projection: { _id: 1, name: 1, email: 1 } }).toArray();
+        res.json(admins);
+      } catch (error) {
+        console.error('Error fetching admin users:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+      }
+    });
 
 
     // template related apis
@@ -202,8 +205,7 @@ app.get('/admins', verifyToken, verifyAdmin, async (req, res) => {
 
       const result = await templateCollection.updateOne(filter, updatedDoc)
       res.send(result);
-    })
-
+    });
 
 
     // free template related apis
@@ -213,12 +215,12 @@ app.get('/admins', verifyToken, verifyAdmin, async (req, res) => {
       res.send(result);
     });
 
+
     app.post('/free', verifyToken, verifyAdmin, async (req, res) => {
       const temp = req.body;
       const result = await freeCollection.insertOne(temp);
       res.send(result);
     });
-
 
 
     app.get('/free/:id', async (req, res) => {
@@ -232,12 +234,14 @@ app.get('/admins', verifyToken, verifyAdmin, async (req, res) => {
       res.send(result);
     });
 
+
     app.delete('/free/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const result = await freeCollection.deleteOne(query);
       res.send(result);
     });
+
 
     app.patch('/free/:id', async (req, res) => {
       const temp = req.body;
@@ -255,7 +259,7 @@ app.get('/admins', verifyToken, verifyAdmin, async (req, res) => {
 
       const result = await freeCollection.updateOne(filter, updatedDoc)
       res.send(result);
-    })
+    });
 
 
 
@@ -289,6 +293,7 @@ app.get('/admins', verifyToken, verifyAdmin, async (req, res) => {
       res.send(result);
     });
 
+
     // payment intent
 
     app.post('/create-payment-intent', async (req, res) => {
@@ -321,7 +326,9 @@ app.get('/admins', verifyToken, verifyAdmin, async (req, res) => {
       const payment = req.body;
       const paymentResult = await paymentCollection.insertOne(payment);
 
+
       //  carefully delete each item from the cart
+
       console.log('payment info', payment);
       const query = {
         _id: {
@@ -330,13 +337,13 @@ app.get('/admins', verifyToken, verifyAdmin, async (req, res) => {
       };
       const deleteResult = await cartCollection.deleteMany(query);
 
-
-
       res.send({ paymentResult, deleteResult });
     });
 
+
     // stats or analytics
-    app.get('/admin-stats', async (req, res) => {
+
+      app.get('/admin-stats', async (req, res) => {
       const users = await userCollection.estimatedDocumentCount();
       const templates = await templateCollection.estimatedDocumentCount();
       const free = await freeCollection.estimatedDocumentCount();
@@ -405,14 +412,11 @@ app.get('/admins', verifyToken, verifyAdmin, async (req, res) => {
           }
         }
 
-
-
       ]).toArray();
 
       res.send(result);
 
-    })
-
+    });
 
 
     // Send a ping to confirm a successful connection
@@ -423,8 +427,8 @@ app.get('/admins', verifyToken, verifyAdmin, async (req, res) => {
     // await client.close();
   }
 }
-run().catch(console.dir);
 
+run().catch(console.dir);
 
 
 app.get('/', (req, res) => {
