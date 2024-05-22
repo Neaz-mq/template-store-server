@@ -169,7 +169,7 @@ async function run() {
       const query = { _id: new ObjectId(id) }
       const options = {
         // Include only the `title` and `imdb` fields in the returned document
-        projection: { name: 1, price: 1, image: 1, descriptions: 1, specifications: 1, product: 1, files: 1 },
+        projection: { name: 1, price: 1, image: 1, descriptions: 1, specifications: 1, product: 1, files: 1, revisions: 1 },
       };
 
       const result = await templateCollection.findOne(query, options);
@@ -203,7 +203,8 @@ async function run() {
           descriptions: temp.descriptions,
           specifications: temp.specifications,
           product: temp.product,
-          files: temp.files
+          files: temp.files,
+          revisions: temp.revisions
 
         }
       }
