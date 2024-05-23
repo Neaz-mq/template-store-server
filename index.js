@@ -168,8 +168,8 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const options = {
-        // Include only the `title` and `imdb` fields in the returned document
-        projection: { name: 1, price: 1, image: 1, descriptions: 1, specifications: 1, product: 1, files: 1, revisions: 1 },
+        
+        projection: { name: 1, price: 1, image: 1, details: 1, descriptions: 1, specifications: 1, product: 1, files: 1, revisions: 1 },
       };
 
       const result = await templateCollection.findOne(query, options);
@@ -349,7 +349,7 @@ async function run() {
 
     // stats or analytics
 
-      app.get('/admin-stats', async (req, res) => {
+    app.get('/admin-stats', async (req, res) => {
       const users = await userCollection.estimatedDocumentCount();
       const templates = await templateCollection.estimatedDocumentCount();
       const free = await freeCollection.estimatedDocumentCount();
