@@ -168,7 +168,7 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const options = {
-        
+
         projection: { name: 1, category: 1, price: 1, image: 1, details: 1, descriptions: 1, specifications: 1, product: 1, files: 1, revisions: 1 },
       };
 
