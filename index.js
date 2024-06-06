@@ -8,8 +8,10 @@ const port = process.env.PORT || 5000;
 
 
 // middlewares
+
 app.use(cors());
 app.use(express.json());
+
 
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.0zyo6s3.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -32,7 +34,6 @@ async function run() {
 
     // Connect the client to the server	(optional starting in v4.7)
 
-
     const templateCollection = client.db("templateDb").collection("template");
     const userCollection = client.db("templateDb").collection("users");
     const freeCollection = client.db("templateDb").collection("free");
@@ -52,12 +53,14 @@ async function run() {
 
 
     // middlewares 
+
     const verifyToken = (req, res, next) => {
       console.log('inside verify token', req.headers.authorization);
 
       if (!req.headers.authorization) {
         return res.status(401).send({ message: 'unauthorized access' });
       }
+
       const token = req.headers.authorization.split(' ')[1];
       jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
         if (err) {
@@ -108,7 +111,6 @@ async function run() {
       res.send({ admin });
     });
 
-
     app.post('/users', async (req, res) => {
       const user = req.body;
       // insert email if user doesnt exists: 
@@ -121,7 +123,6 @@ async function run() {
       const result = await userCollection.insertOne(user);
       res.send(result);
     });
-
 
     app.patch('/users/admin/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
@@ -164,6 +165,7 @@ async function run() {
       res.send(result);
     });
 
+
     app.get('/template/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
@@ -174,6 +176,7 @@ async function run() {
 
       const result = await templateCollection.findOne(query, options);
       res.send(result);
+
     });
 
     app.post('/template', verifyToken, verifyAdmin, async (req, res) => {
@@ -270,6 +273,7 @@ async function run() {
 
       const result = await freeCollection.updateOne(filter, updatedDoc)
       res.send(result);
+
     });
 
 
@@ -337,7 +341,6 @@ async function run() {
       const payment = req.body;
       const paymentResult = await paymentCollection.insertOne(payment);
 
-
       //  carefully delete each item from the cart
 
       console.log('payment info', payment);
@@ -346,9 +349,10 @@ async function run() {
           $in: payment.cartIds.map(id => new ObjectId(id))
         }
       };
-      const deleteResult = await cartCollection.deleteMany(query);
 
+      const deleteResult = await cartCollection.deleteMany(query);
       res.send({ paymentResult, deleteResult });
+
     });
 
 
@@ -359,10 +363,6 @@ async function run() {
       const templates = await templateCollection.estimatedDocumentCount();
       const free = await freeCollection.estimatedDocumentCount();
       const orders = await paymentCollection.estimatedDocumentCount();
-
-      // this is not the best way
-      // const payments = await paymentCollection.find().toArray();
-      // const revenue = payments.reduce((total, payment) => total + payment.price, 0);
 
       const result = await paymentCollection.aggregate([
         {
@@ -407,6 +407,7 @@ async function run() {
         {
           $unwind: "$templateItem"
         },
+
         {
           $group: {
             _id: '$templateItem.category',
@@ -414,6 +415,7 @@ async function run() {
             revenue: { $sum: '$templateItem.price' }
           }
         },
+        
         {
           $project: {
             _id: 0,
