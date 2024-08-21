@@ -198,19 +198,15 @@ async function run() {
       const filter = { _id: new ObjectId(id) }
       const updatedDoc = {
         $set: {
-          name: temp.name,
+          type: temp.type,
           category: temp.category,
           price: temp.price,
-          details: temp.details,
           image: temp.image,
-          descriptions: temp.descriptions,
+          description: temp.description,
           specifications: temp.specifications,
           product: temp.product,
           files: temp.files,
-          revisions: temp.revisions,
-          type: temp.type,
-          pictures: temp.pictures,
-
+          picture: temp.picture
         }
       }
 
