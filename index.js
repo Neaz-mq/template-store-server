@@ -235,7 +235,7 @@ async function run() {
       const query = { _id: new ObjectId(id) }
       const options = {
         // Include only the `title` and `imdb` fields in the returned document
-        projection: { name: 1, category: 1, price: 1, image: 1, details: 1, descriptions: 1, specifications: 1, product: 1, files: 1, revisions: 1 },
+        projection: { type: 1, category: 1, price: 1, image: 1,  description: 1, specifications: 1, product: 1, files: 1, picture: 1 },
       };
       const result = await freeCollection.findOne(query, options);
       res.send(result);
@@ -256,16 +256,15 @@ async function run() {
       const filter = { _id: new ObjectId(id) }
       const updatedDoc = {
         $set: {
-          name: temp.name,
+          type: temp.type,
           category: temp.category,
           price: temp.price,
-          details: temp.details,
           image: temp.image,
-          descriptions: temp.descriptions,
+          description: temp.description,
           specifications: temp.specifications,
           product: temp.product,
           files: temp.files,
-          revisions: temp.revisions
+          picture: temp.picture
         }
       }
 
