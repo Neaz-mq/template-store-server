@@ -336,21 +336,22 @@ async function run() {
 
     app.post('/payments', async (req, res) => {
       const payment = req.body;
-      const paymentResult = await paymentCollection.insertOne(payment);
-
-      //  carefully delete each item from the cart
-
-      console.log('payment info', payment);
+      const paymentResult = await paymentCollection.insertOne({
+        ...payment,
+        createdAt: new Date() // Add this line to include the timestamp
+      });
+    
+      // Carefully delete each item from the cart
       const query = {
         _id: {
           $in: payment.cartIds.map(id => new ObjectId(id))
         }
       };
-
+    
       const deleteResult = await cartCollection.deleteMany(query);
       res.send({ paymentResult, deleteResult });
-
     });
+    
 
 
     // stats or analytics
@@ -382,6 +383,50 @@ async function run() {
         revenue
       })
     });
+
+    // Route to get monthly statistics
+app.get('/monthly-stats', verifyToken, verifyAdmin, async (req, res) => {
+  const { month, year } = req.query;
+
+  if (!month || !year) {
+    return res.status(400).send({ message: 'Month and year are required' });
+  }
+
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 0);
+
+  try {
+    const orders = await paymentCollection.countDocuments({
+      createdAt: { $gte: startDate, $lte: endDate }
+    });
+
+    const result = await paymentCollection.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate, $lte: endDate }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: '$price' }
+        }
+      }
+    ]).toArray();
+
+    const revenue = result.length > 0 ? result[0].totalRevenue : 0;
+
+    res.send({
+      orders,
+      revenue
+    });
+  } catch (error) {
+    console.error('Error fetching monthly stats:', error);
+    res.status(500).send({ message: 'Internal Server Error' });
+  }
+});
+
+
 
 
     // using aggregate pipeline
