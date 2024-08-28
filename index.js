@@ -9,7 +9,10 @@ const port = process.env.PORT || 5000;
 
 // middlewares
 
-app.use(cors());
+app.use(cors({
+  origin: '*'
+}));
+
 app.use(express.json());
 
 
@@ -40,8 +43,66 @@ async function run() {
     const testimonialsCollection = client.db("templateDb").collection("testimonials");
     const cartCollection = client.db("templateDb").collection("carts");
     const paymentCollection = client.db("templateDb").collection("payments");
+    const visitCollection = client.db("templateDb").collection("visits");
 
+    app.post('/api/visit', async (req, res) => {
+      console.log('Visit endpoint hit'); // Add this line for debugging
+      try {
+        // Increment the visit count
+        await visitCollection.updateOne(
+          {},
+          { $inc: { count: 1 } },
+          { upsert: true } // Create the document if it does not exist
+        );
+    
+        // Fetch the updated visit count
+        const visitData = await visitCollection.findOne({});
+        res.send({ visits: visitData.count });
+      } catch (error) {
+        console.error('Error updating visit count:', error);
+        res.status(500).send({ message: 'Internal Server Error' });
+      }
+    });
+    
 
+    app.get('/admin-stats', async (req, res) => {
+      try {
+        const users = await userCollection.estimatedDocumentCount();
+        const templates = await templateCollection.estimatedDocumentCount();
+        const free = await freeCollection.estimatedDocumentCount();
+        const orders = await paymentCollection.estimatedDocumentCount();
+    
+        const result = await paymentCollection.aggregate([
+          {
+            $group: {
+              _id: null,
+              totalRevenue: {
+                $sum: '$price'
+              }
+            }
+          }
+        ]).toArray();
+    
+        const revenue = result.length > 0 ? result[0].totalRevenue : 0;
+    
+        // Fetch the visit count
+        const visitData = await visitCollection.findOne({});
+        const visits = visitData ? visitData.count : 0;
+    
+        res.send({
+          users,
+          templates,
+          free,
+          orders,
+          revenue,
+          visits // Add the visit count to the response
+        });
+      } catch (error) {
+        console.error('Error fetching admin stats:', error);
+        res.status(500).send({ message: 'Internal Server Error' });
+      }
+    });
+    
 
     // jwt related api
 
@@ -354,36 +415,6 @@ async function run() {
     
 
 
-    // stats or analytics
-
-    app.get('/admin-stats', async (req, res) => {
-      const users = await userCollection.estimatedDocumentCount();
-      const templates = await templateCollection.estimatedDocumentCount();
-      const free = await freeCollection.estimatedDocumentCount();
-      const orders = await paymentCollection.estimatedDocumentCount();
-
-      const result = await paymentCollection.aggregate([
-        {
-          $group: {
-            _id: null,
-            totalRevenue: {
-              $sum: '$price'
-            }
-          }
-        }
-      ]).toArray();
-
-      const revenue = result.length > 0 ? result[0].totalRevenue : 0;
-
-      res.send({
-        users,
-        templates,
-        free,
-        orders,
-        revenue
-      })
-    });
-
     // Route to get monthly statistics
 app.get('/monthly-stats', verifyToken, verifyAdmin, async (req, res) => {
   const { month, year } = req.query;
@@ -425,7 +456,6 @@ app.get('/monthly-stats', verifyToken, verifyAdmin, async (req, res) => {
     res.status(500).send({ message: 'Internal Server Error' });
   }
 });
-
 
 
 
