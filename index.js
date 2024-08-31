@@ -232,7 +232,7 @@ async function run() {
       const query = { _id: new ObjectId(id) }
       const options = {
 
-        projection: { type: 1, category: 1, price: 1, image: 1,  description: 1, specifications: 1, product: 1, files: 1, picture: 1 },
+        projection: { type: 1, category: 1, price: 1, image: 1,  description: 1, specifications: 1, product: 1, documents: 1, picture: 1, revisions: 1, files: 1 },
       };
 
       const result = await templateCollection.findOne(query, options);
@@ -266,8 +266,10 @@ async function run() {
           description: temp.description,
           specifications: temp.specifications,
           product: temp.product,
+          revisions: temp.revisions,
+          documents: temp.documents,
+          picture: temp.picture,
           files: temp.files,
-          picture: temp.picture
         }
       }
 
