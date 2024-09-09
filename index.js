@@ -43,6 +43,7 @@ async function run() {
     const cartCollection = client.db("templateDb").collection("carts");
     const paymentCollection = client.db("templateDb").collection("payments");
     const visitCollection = client.db("templateDb").collection("visits");
+    const exclusiveCollection = client.db("templateDb").collection("exclusive");
 
     app.post('/api/visit', async (req, res) => {
       console.log('Visit endpoint hit'); // Add this line for debugging
@@ -337,6 +338,69 @@ async function run() {
       res.send(result);
 
     });
+
+
+
+    // Exclusive Template
+
+     app.get('/exclusive', async (req, res) => {
+      const result = await exclusiveCollection.find().toArray();
+      res.send(result);
+    });
+
+
+    app.post('/exclusive', verifyToken, verifyAdmin, async (req, res) => {
+      const temp = req.body;
+      const result = await exclusiveCollection.insertOne(temp);
+      res.send(result);
+    });
+
+
+    app.get('/exclusive/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const options = {
+        // Include only the `title` and `imdb` fields in the returned document
+        projection: { type: 1, category: 1, price: 1, image: 1,  description: 1, specifications: 1, product: 1, documents: 1, picture: 1, revisions: 1, files: 1 },
+      };
+      const result = await exclusiveCollection.findOne(query, options);
+      res.send(result);
+    });
+
+
+    app.delete('/exclusive/:id', verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await exclusiveCollection.deleteOne(query);
+      res.send(result);
+    });
+
+
+    app.patch('/exclusive/:id', async (req, res) => {
+      const temp = req.body;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) }
+      const updatedDoc = {
+        $set: {
+          type: temp.type,
+          category: temp.category,
+          price: temp.price,
+          image: temp.image,
+          description: temp.description,
+          specifications: temp.specifications,
+          product: temp.product,
+          revisions: temp.revisions,
+          documents: temp.documents,
+          picture: temp.picture,
+          files: temp.files,
+        }
+      }
+
+      const result = await exclusiveCollection.updateOne(filter, updatedDoc)
+      res.send(result);
+
+    });
+
 
 
 
