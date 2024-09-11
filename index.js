@@ -402,8 +402,6 @@ async function run() {
     });
 
 
-
-
     // testimonials related apis
 
     app.get('/testimonials', async (req, res) => {
