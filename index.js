@@ -589,7 +589,6 @@ app.get('/monthly-stats', verifyToken, verifyAdmin, async (req, res) => {
 
 run().catch(console.dir);
 
-
 app.get('/', (req, res) => {
   res.send('Templates are here')
 })
