@@ -9,8 +9,6 @@ const port = process.env.PORT || 5000;
 const SSLCommerzPayment = require('sslcommerz-lts');
 
 
-
-
 // middlewares
 
 app.use(cors({
@@ -20,17 +18,13 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded());
 
-
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const { default: axios } = require('axios');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.0zyo6s3.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
-
-
 const store_id = process.env.STORE_ID;
 const store_passwd = process.env.STORE_PASS;
 const is_live = false //true for live, false for sandbox
-
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 
@@ -159,7 +153,6 @@ async function run() {
       next();
     }
 
-
     // users related api
 
     app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
@@ -244,7 +237,6 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const options = {
-
         projection: { type: 1, category: 1, price: 1, image: 1,  description: 1, specifications: 1, product: 1, documents: 1, picture: 1, revisions: 1, files: 1 },
       };
 
@@ -353,14 +345,12 @@ async function run() {
     });
 
 
-
     // Exclusive Template
 
      app.get('/exclusive', async (req, res) => {
       const result = await exclusiveCollection.find().toArray();
       res.send(result);
     });
-
 
     app.post('/exclusive', verifyToken, verifyAdmin, async (req, res) => {
       const temp = req.body;
@@ -380,14 +370,12 @@ async function run() {
       res.send(result);
     });
 
-
     app.delete('/exclusive/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const result = await exclusiveCollection.deleteOne(query);
       res.send(result);
     });
-
 
     app.patch('/exclusive/:id', async (req, res) => {
       const temp = req.body;
@@ -453,7 +441,6 @@ async function run() {
       res.send(result);
     });
 
-    
 
     // Route to get monthly statistics
 app.get('/monthly-stats', verifyToken, verifyAdmin, async (req, res) => {
@@ -498,11 +485,10 @@ app.get('/monthly-stats', verifyToken, verifyAdmin, async (req, res) => {
 });
 
 
-
 // SSLCommerz Payment Route
 app.post("/create-payment", async (req, res) => {
   try {
-    const { amount, customerName, customerEmail, successUrl, failUrl, cancelUrl } = req.body;
+    const { amount, customerName, customerEmail} = req.body;
 
     const sslcommerz = new SSLCommerzPayment(store_id, store_passwd, is_live);
 
@@ -515,7 +501,7 @@ app.post("/create-payment", async (req, res) => {
       success_url: "http://localhost:5000/success-payment",
       fail_url: "http://localhost:5000/fail-payment",
       cancel_url: "http://localhost:5000/cancel-payment",
-      cus_name: customerName,
+      cus_name: customerName || "Unknown Customer",
       cus_email: customerEmail,
       cus_add1: "Dhaka",
       cus_add2: "Dhaka",
@@ -565,31 +551,36 @@ app.post("/create-payment", async (req, res) => {
 });
 
 
+// Payment success route
 app.post("/success-payment", async (req, res) => {
   try {
     const successData = req.body;
 
-    // Assuming successData contains `tran_id` and `status`
+    console.log("Payment success data:", successData); // Log the response data
+
+    // Assuming successData contains `tran_id` and other fields
     const filter = { paymentId: successData.tran_id };
     const updateDoc = {
       $set: {
         status: "success",
-        paymentResponse: successData,
+        paymentResponse: successData, // Ensure this contains all relevant info
+        customerEmail: successData.cus_email, // Save the customer email
       },
     };
 
-    // Update the payment status in the database
     await paymentCollection.updateOne(filter, updateDoc);
 
     // Clear the user's cart after successful payment
     await cartCollection.deleteMany({ email: successData.cus_email });
 
-    res.redirect ("http://localhost:5173/dashboard/success-payment")
+    res.redirect("http://localhost:5173/dashboard/success-payment");
   } catch (error) {
     console.error("Error updating payment status:", error);
     res.status(500).send({ message: "Internal Server Error" });
   }
 });
+
+
 
 
 app.post("/fail-payment", async (req, res) => {
@@ -642,11 +633,6 @@ app.post("/cancel-payment", async (req, res) => {
     res.status(500).send({ message: "Internal Server Error" });
   }
 });
-
-
-
-
-
 
 
     // using aggregate pipeline
