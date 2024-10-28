@@ -512,9 +512,9 @@ app.post("/create-payment", async (req, res) => {
       total_amount: amount,
       currency: 'BDT',
       tran_id: new Date().getTime().toString(),
-      success_url: successUrl,
-      fail_url: failUrl,
-      cancel_url: cancelUrl,
+      success_url: "http://localhost:5000/success-payment",
+      fail_url: "http://localhost:5000/fail-payment",
+      cancel_url: "http://localhost:5000/cancel-payment",
       cus_name: customerName,
       cus_email: customerEmail,
       cus_add1: "Dhaka",
@@ -584,10 +584,7 @@ app.post("/success-payment", async (req, res) => {
     // Clear the user's cart after successful payment
     await cartCollection.deleteMany({ email: successData.cus_email });
 
-    // Redirect to the frontend success page
-    res.send({ 
-      message: "Payment successful."
-    });
+    res.redirect ("http://localhost:5173/dashboard/success-payment")
   } catch (error) {
     console.error("Error updating payment status:", error);
     res.status(500).send({ message: "Internal Server Error" });
@@ -613,10 +610,7 @@ app.post("/fail-payment", async (req, res) => {
 
     // No need to clear the user's cart in case of a failed payment
 
-    // Send failure response
-    res.send({ 
-      message: "Payment failed."
-    });
+    res.redirect ("http://localhost:5173/dashboard/fail-payment")
   } catch (error) {
     console.error("Error updating payment status:", error);
     res.status(500).send({ message: "Internal Server Error" });
@@ -642,10 +636,7 @@ app.post("/cancel-payment", async (req, res) => {
 
     // No need to clear the user's cart in case of a canceled payment
 
-    // Send cancellation response
-    res.send({ 
-      message: "Payment canceled."
-    });
+    res.redirect ("http://localhost:5173/dashboard/cancel-payment")
   } catch (error) {
     console.error("Error updating payment status:", error);
     res.status(500).send({ message: "Internal Server Error" });
