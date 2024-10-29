@@ -441,17 +441,44 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/clear-cart", async (req, res) => {
-      const { email } = req.body; // Extract email from request body
-      try {
-          // Clear cart items for the specified email
-          await cartCollection.deleteMany({ email: email });
-          res.status(200).json({ message: "Cart cleared successfully" });
-      } catch (error) {
-          console.error("Error clearing cart:", error);
-          res.status(500).json({ message: "Internal Server Error" });
+   // Assuming you have an endpoint to handle payment confirmation
+app.post("/payment-confirmation", async (req, res) => {
+  const paymentData = req.body; // This should include payment details
+  
+  // Example structure for paymentData
+  // const { email, status } = paymentData;
+
+  try {
+      // Check payment status
+      if (paymentData.status === "success") {
+          // If payment is successful, clear the cart
+          await cartCollection.deleteMany({ email: paymentData.email });
+          console.log("Cart cleared successfully for:", paymentData.email);
       }
-  });
+
+      // Save the payment details to the payments collection
+      await paymentsCollection.insertOne(paymentData);
+      
+      res.status(200).json({ message: "Payment processed successfully" });
+  } catch (error) {
+      console.error("Error processing payment:", error);
+      res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// Cart clearing endpoint
+app.post("/clear-cart", async (req, res) => {
+  const { email } = req.body; // Extract email from request body
+  try {
+      // Clear cart items for the specified email
+      await cartCollection.deleteMany({ email: email });
+      res.status(200).json({ message: "Cart cleared successfully" });
+  } catch (error) {
+      console.error("Error clearing cart:", error);
+      res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
   
 
 
