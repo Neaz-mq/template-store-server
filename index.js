@@ -441,6 +441,19 @@ async function run() {
       res.send(result);
     });
 
+    app.post("/clear-cart", async (req, res) => {
+      const { email } = req.body; // Extract email from request body
+      try {
+          // Clear cart items for the specified email
+          await cartCollection.deleteMany({ email: email });
+          res.status(200).json({ message: "Cart cleared successfully" });
+      } catch (error) {
+          console.error("Error clearing cart:", error);
+          res.status(500).json({ message: "Internal Server Error" });
+      }
+  });
+  
+
 
     // Route to get monthly statistics
 app.get('/monthly-stats', verifyToken, verifyAdmin, async (req, res) => {
@@ -582,43 +595,48 @@ app.post("/success-payment", async (req, res) => {
 
 app.get('/payments/:email', async (req, res) => {
   try {
-    const cus_email = req.params.email;
-    const payments = await paymentCollection.find({ customerEmail: cus_email }).toArray();
-    res.send(payments);
+      const cus_email = req.params.email;
+      const payments = await paymentCollection.find({ cus_email }).toArray(); // Ensure you're querying the correct field
+      res.send(payments);
   } catch (error) {
-    console.error('Error fetching payments:', error);
-    res.status(500).send({ message: 'Internal Server Error' });
+      console.error('Error fetching payments:', error);
+      res.status(500).send({ message: 'Internal Server Error' });
   }
 });
 
 
 
 
+
+// Payment fail route
 
 app.post("/fail-payment", async (req, res) => {
   try {
-    const failData = req.body;
+      const failData = req.body;
 
-    // Assuming failData contains `tran_id` and `status`
-    const filter = { paymentId: failData.tran_id };
-    const updateDoc = {
-      $set: {
-        status: "failed",
-        paymentResponse: failData,
-      },
-    };
+      // Assuming failData contains `tran_id` and `status`
+      const filter = { paymentId: failData.tran_id };
+      const updateDoc = {
+          $set: {
+              status: "failed",
+              paymentResponse: failData,
+          },
+      };
 
-    // Update the payment status in the database
-    await paymentCollection.updateOne(filter, updateDoc);
+      // Update the payment status in the database
+      await paymentCollection.updateOne(filter, updateDoc);
 
-    // No need to clear the user's cart in case of a failed payment
+      // No need to clear the user's cart in case of a failed payment
 
-    res.redirect ("http://localhost:5173/dashboard/fail-payment")
+      res.redirect("http://localhost:5173/dashboard/fail-payment");
   } catch (error) {
-    console.error("Error updating payment status:", error);
-    res.status(500).send({ message: "Internal Server Error" });
+      console.error("Error updating payment status:", error);
+      res.status(500).send({ message: "Internal Server Error" });
   }
 });
+
+
+
 
 
 app.post("/cancel-payment", async (req, res) => {
