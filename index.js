@@ -468,14 +468,17 @@ app.post("/payment-confirmation", async (req, res) => {
 
 // Cart clearing endpoint
 app.post("/clear-cart", async (req, res) => {
-  const { email } = req.body; // Extract email from request body
+  const { email } = req.body;
   try {
-      // Clear cart items for the specified email
-      await cartCollection.deleteMany({ email: email });
-      res.status(200).json({ message: "Cart cleared successfully" });
+      const result = await cartCollection.deleteMany({ email: email });
+      if (result.deletedCount > 0) {
+          return res.json({ success: true });
+      } else {
+          return res.json({ success: false, message: "No items to clear" });
+      }
   } catch (error) {
       console.error("Error clearing cart:", error);
-      res.status(500).json({ message: "Internal Server Error" });
+      return res.status(500).send({ message: "Internal Server Error" });
   }
 });
 
@@ -612,7 +615,7 @@ app.post("/success-payment", async (req, res) => {
     // Clear the user's cart after successful payment
     await cartCollection.deleteMany({ email: successData.cus_email });
 
-    res.redirect("http://localhost:5173/dashboard/paymentHistory");
+    res.redirect('http://localhost:5173/dashboard/paymentHistory?fromPaymentSuccess=true');
   } catch (error) {
     console.error("Error updating payment status:", error);
     res.status(500).send({ message: "Internal Server Error" });
