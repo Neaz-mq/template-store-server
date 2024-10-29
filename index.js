@@ -488,7 +488,7 @@ app.get('/monthly-stats', verifyToken, verifyAdmin, async (req, res) => {
 // SSLCommerz Payment Route
 app.post("/create-payment", async (req, res) => {
   try {
-    const { amount, customerName, customerEmail} = req.body;
+    const { amount, customerEmail} = req.body;
 
     const sslcommerz = new SSLCommerzPayment(store_id, store_passwd, is_live);
 
@@ -501,7 +501,6 @@ app.post("/create-payment", async (req, res) => {
       success_url: "http://localhost:5000/success-payment",
       fail_url: "http://localhost:5000/fail-payment",
       cancel_url: "http://localhost:5000/cancel-payment",
-      cus_name: customerName || "Unknown Customer",
       cus_email: customerEmail,
       cus_add1: "Dhaka",
       cus_add2: "Dhaka",
@@ -526,7 +525,7 @@ app.post("/create-payment", async (req, res) => {
     
     if (apiResponse?.GatewayPageURL) {
       const saveData = {
-        cus_name: customerName,
+        cus_email: customerEmail,
         paymentId: data.tran_id,
         amount: amount,
         status: "pending",
@@ -564,7 +563,7 @@ app.post("/success-payment", async (req, res) => {
       $set: {
         status: "success",
         paymentResponse: successData, // Ensure this contains all relevant info
-        customerEmail: successData.cus_email, // Save the customer email
+        // Save the customer email
       },
     };
 
@@ -573,12 +572,25 @@ app.post("/success-payment", async (req, res) => {
     // Clear the user's cart after successful payment
     await cartCollection.deleteMany({ email: successData.cus_email });
 
-    res.redirect("http://localhost:5173/dashboard/success-payment");
+    res.redirect("http://localhost:5173/dashboard/paymentHistory");
   } catch (error) {
     console.error("Error updating payment status:", error);
     res.status(500).send({ message: "Internal Server Error" });
   }
 });
+
+
+app.get('/payments/:email', async (req, res) => {
+  try {
+    const cus_email = req.params.email;
+    const payments = await paymentCollection.find({ customerEmail: cus_email }).toArray();
+    res.send(payments);
+  } catch (error) {
+    console.error('Error fetching payments:', error);
+    res.status(500).send({ message: 'Internal Server Error' });
+  }
+});
+
 
 
 
