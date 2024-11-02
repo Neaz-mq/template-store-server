@@ -8,7 +8,6 @@ const port = process.env.PORT || 5000;
 
 const SSLCommerzPayment = require('sslcommerz-lts');
 
-
 // middlewares
 
 app.use(cors({
@@ -61,7 +60,7 @@ async function run() {
           { $inc: { count: 1 } },
           { upsert: true } // Create the document if it does not exist
         );
-    
+
         // Fetch the updated visit count
         const visitData = await visitCollection.findOne({});
         res.send({ visits: visitData.count });
@@ -70,36 +69,47 @@ async function run() {
         res.status(500).send({ message: 'Internal Server Error' });
       }
     });
-    
+
 
     app.get('/admin-stats', async (req, res) => {
       try {
         const users = await userCollection.estimatedDocumentCount();
         const templates = await templateCollection.estimatedDocumentCount();
         const free = await freeCollection.estimatedDocumentCount();
-        const orders = await paymentCollection.estimatedDocumentCount();
-    
+        const exclusives = await exclusiveCollection.estimatedDocumentCount();
+
+        // Count only successful orders
+        const orders = await paymentCollection.countDocuments({
+          status: 'success'  // Count only successful payments
+        });
+
         const result = await paymentCollection.aggregate([
+          {
+            $match: {
+              status: 'success'  // Only consider successful payments for revenue
+            }
+          },
           {
             $group: {
               _id: null,
               totalRevenue: {
-                $sum: '$price'
+                $sum: '$amount'
               }
             }
           }
         ]).toArray();
-    
+
         const revenue = result.length > 0 ? result[0].totalRevenue : 0;
-    
+
         // Fetch the visit count
         const visitData = await visitCollection.findOne({});
         const visits = visitData ? visitData.count : 0;
-    
+
         res.send({
           users,
           templates,
           free,
+          exclusives,
           orders,
           revenue,
           visits // Add the visit count to the response
@@ -109,7 +119,7 @@ async function run() {
         res.status(500).send({ message: 'Internal Server Error' });
       }
     });
-    
+
 
     // jwt related api
 
@@ -237,7 +247,7 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const options = {
-        projection: { type: 1, category: 1, price: 1, image: 1,  description: 1, specifications: 1, product: 1, documents: 1, picture: 1, revisions: 1, files: 1 },
+        projection: { type: 1, category: 1, price: 1, image: 1, description: 1, specifications: 1, product: 1, documents: 1, picture: 1, revisions: 1, files: 1 },
       };
 
       const result = await templateCollection.findOne(query, options);
@@ -303,7 +313,7 @@ async function run() {
       const query = { _id: new ObjectId(id) }
       const options = {
         // Include only the `title` and `imdb` fields in the returned document
-        projection: { type: 1, category: 1, price: 1, image: 1,  description: 1, specifications: 1, product: 1, documents: 1, picture: 1, revisions: 1, files: 1, docs: 1 },
+        projection: { type: 1, category: 1, price: 1, image: 1, description: 1, specifications: 1, product: 1, documents: 1, picture: 1, revisions: 1, files: 1, docs: 1 },
       };
       const result = await freeCollection.findOne(query, options);
       res.send(result);
@@ -347,7 +357,7 @@ async function run() {
 
     // Exclusive Template
 
-     app.get('/exclusive', async (req, res) => {
+    app.get('/exclusive', async (req, res) => {
       const result = await exclusiveCollection.find().toArray();
       res.send(result);
     });
@@ -364,7 +374,7 @@ async function run() {
       const query = { _id: new ObjectId(id) }
       const options = {
         // Include only the `title` and `imdb` fields in the returned document
-        projection: { type: 1, category: 1, price: 1, image: 1,  description: 1, specifications: 1, product: 1, documents: 1, picture: 1, revisions: 1, files: 1, packages: 1, times: 1, basics: 1, standards: 1, premiums: 1, amount: 1 , money: 1, charge: 1 },
+        projection: { type: 1, category: 1, price: 1, image: 1, description: 1, specifications: 1, product: 1, documents: 1, picture: 1, revisions: 1, files: 1, packages: 1, times: 1, basics: 1, standards: 1, premiums: 1, amount: 1, money: 1, charge: 1 },
       };
       const result = await exclusiveCollection.findOne(query, options);
       res.send(result);
@@ -418,7 +428,6 @@ async function run() {
       res.send(result);
     });
 
-
     // cart collection apis
 
     app.get('/carts', async (req, res) => {
@@ -441,258 +450,256 @@ async function run() {
       res.send(result);
     });
 
-   // Assuming you have an endpoint to handle payment confirmation
-app.post("/payment-confirmation", async (req, res) => {
-  const paymentData = req.body; // This should include payment details
-  
-  // Example structure for paymentData
-  // const { email, status } = paymentData;
+    // Assuming you have an endpoint to handle payment confirmation
+    app.post("/payment-confirmation", async (req, res) => {
+      const paymentData = req.body; // This should include payment details
 
-  try {
-      // Check payment status
-      if (paymentData.status === "success") {
+      // Example structure for paymentData
+      // const { email, status } = paymentData;
+
+      try {
+        // Check payment status
+        if (paymentData.status === "success") {
           // If payment is successful, clear the cart
           await cartCollection.deleteMany({ email: paymentData.email });
           console.log("Cart cleared successfully for:", paymentData.email);
+        }
+
+        // Save the payment details to the payments collection
+        await paymentsCollection.insertOne(paymentData);
+
+        res.status(200).json({ message: "Payment processed successfully" });
+      } catch (error) {
+        console.error("Error processing payment:", error);
+        res.status(500).json({ message: "Internal Server Error" });
       }
+    });
 
-      // Save the payment details to the payments collection
-      await paymentsCollection.insertOne(paymentData);
-      
-      res.status(200).json({ message: "Payment processed successfully" });
-  } catch (error) {
-      console.error("Error processing payment:", error);
-      res.status(500).json({ message: "Internal Server Error" });
-  }
-});
-
-// Cart clearing endpoint
-app.post("/clear-cart", async (req, res) => {
-  const { email } = req.body;
-  try {
-      const result = await cartCollection.deleteMany({ email: email });
-      if (result.deletedCount > 0) {
+    // Cart clearing endpoint
+    app.post("/clear-cart", async (req, res) => {
+      const { email } = req.body;
+      try {
+        const result = await cartCollection.deleteMany({ email: email });
+        if (result.deletedCount > 0) {
           return res.json({ success: true });
-      } else {
+        } else {
           return res.json({ success: false, message: "No items to clear" });
+        }
+      } catch (error) {
+        console.error("Error clearing cart:", error);
+        return res.status(500).send({ message: "Internal Server Error" });
       }
-  } catch (error) {
-      console.error("Error clearing cart:", error);
-      return res.status(500).send({ message: "Internal Server Error" });
-  }
-});
-
-  
+    });
 
 
     // Route to get monthly statistics
-app.get('/monthly-stats', verifyToken, verifyAdmin, async (req, res) => {
-  const { month, year } = req.query;
 
-  if (!month || !year) {
-    return res.status(400).send({ message: 'Month and year are required' });
-  }
+    app.get('/monthly-stats', verifyToken, verifyAdmin, async (req, res) => {
+      const { month, year } = req.query;
 
-  const startDate = new Date(year, month - 1, 1);
-  const endDate = new Date(year, month, 0);
+      if (!month || !year) {
+        return res.status(400).send({ message: 'Month and year are required' });
+      }
 
-  try {
-    const orders = await paymentCollection.countDocuments({
-      createdAt: { $gte: startDate, $lte: endDate }
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0);
+
+      try {
+        const orders = await paymentCollection.countDocuments({
+          createdAt: { $gte: startDate, $lte: endDate },
+          status: 'success'  // Count only successful payments
+        });
+
+        const result = await paymentCollection.aggregate([
+          {
+            $match: {
+              createdAt: { $gte: startDate, $lte: endDate },
+              status: 'success'  // Only consider successful payments for revenue
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              totalRevenue: { $sum: '$amount' }
+            }
+          }
+        ]).toArray();
+
+        const revenue = result.length > 0 ? result[0].totalRevenue : 0;
+
+        res.send({
+          orders,
+          revenue
+        });
+      } catch (error) {
+        console.error('Error fetching monthly stats:', error);
+        res.status(500).send({ message: 'Internal Server Error' });
+      }
     });
 
-    const result = await paymentCollection.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startDate, $lte: endDate }
+
+
+    // SSLCommerz Payment Route
+
+    app.post("/create-payment", async (req, res) => {
+      try {
+        const { amount, customerEmail } = req.body;
+
+        const sslcommerz = new SSLCommerzPayment(store_id, store_passwd, is_live);
+
+        const data = {
+          store_id: process.env.STORE_ID,
+          store_passwd: process.env.STORE_PASS,
+          total_amount: amount,
+          currency: 'BDT',
+          tran_id: new Date().getTime().toString(),
+          success_url: "http://localhost:5000/success-payment",
+          fail_url: "http://localhost:5000/fail-payment",
+          cancel_url: "http://localhost:5000/cancel-payment",
+          cus_email: customerEmail,
+          cus_add1: "Dhaka",
+          cus_add2: "Dhaka",
+          cus_city: "Dhaka",
+          cus_state: "Dhaka",
+          cus_postcode: 1000,
+          cus_country: "Bangladesh",
+          cus_phone: "01711111111",
+          cus_fax: "01711111111",
+          shipping_method: "NO",
+          product_name: "Template",
+          product_category: "Design",
+          product_profile: "general",
+          multi_card_name: "mastercard,visacard,amexcard",
+          value_a: "ref001_A",
+          value_b: "ref002_B",
+          value_c: "ref003_C",
+          value_d: "ref004_D",
+        };
+
+        const apiResponse = await sslcommerz.init(data);
+
+        if (apiResponse?.GatewayPageURL) {
+          const saveData = {
+            cus_email: customerEmail,
+            paymentId: data.tran_id,
+            amount: amount,
+            status: "pending",
+          };
+
+          // Save to database, ensure it's successful before responding
+          await paymentCollection.insertOne(saveData);
+
+          // Only respond if we haven't already sent a response
+          return res.send({ paymentUrl: apiResponse.GatewayPageURL });
+        } else {
+          return res.status(500).send({ message: 'Payment initialization failed.' });
         }
-      },
-      {
-        $group: {
-          _id: null,
-          totalRevenue: { $sum: '$price' }
+      } catch (error) {
+        console.error("Error creating payment:", error);
+
+        // Send error response only if we haven't sent one already
+        if (!res.headersSent) {
+          return res.status(500).send({ message: "Internal Server Error", error: error.message });
         }
       }
-    ]).toArray();
-
-    const revenue = result.length > 0 ? result[0].totalRevenue : 0;
-
-    res.send({
-      orders,
-      revenue
     });
-  } catch (error) {
-    console.error('Error fetching monthly stats:', error);
-    res.status(500).send({ message: 'Internal Server Error' });
-  }
-});
 
 
-// SSLCommerz Payment Route
-app.post("/create-payment", async (req, res) => {
-  try {
-    const { amount, customerEmail} = req.body;
+    // Payment success route
 
-    const sslcommerz = new SSLCommerzPayment(store_id, store_passwd, is_live);
+    app.post("/success-payment", async (req, res) => {
+      try {
+        const successData = req.body;
 
-    const data = {
-      store_id: process.env.STORE_ID,
-      store_passwd: process.env.STORE_PASS,
-      total_amount: amount,
-      currency: 'BDT',
-      tran_id: new Date().getTime().toString(),
-      success_url: "http://localhost:5000/success-payment",
-      fail_url: "http://localhost:5000/fail-payment",
-      cancel_url: "http://localhost:5000/cancel-payment",
-      cus_email: customerEmail,
-      cus_add1: "Dhaka",
-      cus_add2: "Dhaka",
-      cus_city: "Dhaka",
-      cus_state: "Dhaka",
-      cus_postcode: 1000,
-      cus_country: "Bangladesh",
-      cus_phone: "01711111111",
-      cus_fax: "01711111111",
-      shipping_method: "NO",
-      product_name: "Template",
-      product_category: "Design",
-      product_profile: "general",
-      multi_card_name: "mastercard,visacard,amexcard",
-      value_a: "ref001_A",
-      value_b: "ref002_B",
-      value_c: "ref003_C",
-      value_d: "ref004_D",
-    };
+        console.log("Payment success data:", successData); // Log the response data
 
-    const apiResponse = await sslcommerz.init(data);
-    
-    if (apiResponse?.GatewayPageURL) {
-      const saveData = {
-        cus_email: customerEmail,
-        paymentId: data.tran_id,
-        amount: amount,
-        status: "pending",
-      };
-
-      // Save to database, ensure it's successful before responding
-      await paymentCollection.insertOne(saveData);
-      
-      // Only respond if we haven't already sent a response
-      return res.send({ paymentUrl: apiResponse.GatewayPageURL });
-    } else {
-      return res.status(500).send({ message: 'Payment initialization failed.' });
-    }
-  } catch (error) {
-    console.error("Error creating payment:", error);
-    
-    // Send error response only if we haven't sent one already
-    if (!res.headersSent) {
-      return res.status(500).send({ message: "Internal Server Error", error: error.message });
-    }
-  }
-});
-
-
-// Payment success route
-app.post("/success-payment", async (req, res) => {
-  try {
-    const successData = req.body;
-
-    console.log("Payment success data:", successData); // Log the response data
-
-    // Assuming successData contains `tran_id` and other fields
-    const filter = { paymentId: successData.tran_id };
-    const updateDoc = {
-      $set: {
-        status: "success",
-        paymentResponse: successData, // Ensure this contains all relevant info
-        // Save the customer email
-      },
-    };
-
-    await paymentCollection.updateOne(filter, updateDoc);
-
-    // Clear the user's cart after successful payment
-    await cartCollection.deleteMany({ email: successData.cus_email });
-
-    res.redirect('http://localhost:5173/dashboard/paymentHistory?fromPaymentSuccess=true');
-  } catch (error) {
-    console.error("Error updating payment status:", error);
-    res.status(500).send({ message: "Internal Server Error" });
-  }
-});
-
-
-app.get('/payments/:email', async (req, res) => {
-  try {
-      const cus_email = req.params.email;
-      const payments = await paymentCollection.find({ cus_email }).toArray(); // Ensure you're querying the correct field
-      res.send(payments);
-  } catch (error) {
-      console.error('Error fetching payments:', error);
-      res.status(500).send({ message: 'Internal Server Error' });
-  }
-});
-
-
-
-
-
-// Payment fail route
-
-app.post("/fail-payment", async (req, res) => {
-  try {
-      const failData = req.body;
-
-      // Assuming failData contains `tran_id` and `status`
-      const filter = { paymentId: failData.tran_id };
-      const updateDoc = {
+        // Assuming successData contains `tran_id` and other fields
+        const filter = { paymentId: successData.tran_id };
+        const updateDoc = {
           $set: {
-              status: "failed",
-              paymentResponse: failData,
+            status: "success",
+            paymentResponse: successData, // Ensure this contains all relevant info
+            // Save the customer email
           },
-      };
+        };
 
-      // Update the payment status in the database
-      await paymentCollection.updateOne(filter, updateDoc);
+        await paymentCollection.updateOne(filter, updateDoc);
 
-      // No need to clear the user's cart in case of a failed payment
+        // Clear the user's cart after successful payment
+        await cartCollection.deleteMany({ email: successData.cus_email });
 
-      res.redirect("http://localhost:5173/dashboard/fail-payment");
-  } catch (error) {
-      console.error("Error updating payment status:", error);
-      res.status(500).send({ message: "Internal Server Error" });
-  }
-});
-
-
+        res.redirect('http://localhost:5173/dashboard/paymentHistory?fromPaymentSuccess=true');
+      } catch (error) {
+        console.error("Error updating payment status:", error);
+        res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
 
 
+    app.get('/payments/:email', async (req, res) => {
+      try {
+        const cus_email = req.params.email;
+        const payments = await paymentCollection.find({ cus_email }).toArray(); // Ensure you're querying the correct field
+        res.send(payments);
+      } catch (error) {
+        console.error('Error fetching payments:', error);
+        res.status(500).send({ message: 'Internal Server Error' });
+      }
+    });
 
-app.post("/cancel-payment", async (req, res) => {
-  try {
-    const cancelData = req.body;
 
-    // Assuming cancelData contains `tran_id` and `status`
-    const filter = { paymentId: cancelData.tran_id };
-    const updateDoc = {
-      $set: {
-        status: "canceled",
-        paymentResponse: cancelData,
-      },
-    };
+    // Payment fail route
 
-    // Update the payment status in the database
-    await paymentCollection.updateOne(filter, updateDoc);
+    app.post("/fail-payment", async (req, res) => {
+      try {
+        const failData = req.body;
 
-    // No need to clear the user's cart in case of a canceled payment
+        // Assuming failData contains `tran_id` and `status`
+        const filter = { paymentId: failData.tran_id };
+        const updateDoc = {
+          $set: {
+            status: "failed",
+            paymentResponse: failData,
+          },
+        };
 
-    res.redirect ("http://localhost:5173/dashboard/cancel-payment")
-  } catch (error) {
-    console.error("Error updating payment status:", error);
-    res.status(500).send({ message: "Internal Server Error" });
-  }
-});
+        // Update the payment status in the database
+        await paymentCollection.updateOne(filter, updateDoc);
+
+        // No need to clear the user's cart in case of a failed payment
+
+        res.redirect("http://localhost:5173/dashboard/fail-payment");
+      } catch (error) {
+        console.error("Error updating payment status:", error);
+        res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
+
+
+    app.post("/cancel-payment", async (req, res) => {
+      try {
+        const cancelData = req.body;
+
+        // Assuming cancelData contains `tran_id` and `status`
+        const filter = { paymentId: cancelData.tran_id };
+        const updateDoc = {
+          $set: {
+            status: "canceled",
+            paymentResponse: cancelData,
+          },
+        };
+
+        // Update the payment status in the database
+        await paymentCollection.updateOne(filter, updateDoc);
+
+        // No need to clear the user's cart in case of a canceled payment
+
+        res.redirect("http://localhost:5173/dashboard/cancel-payment")
+      } catch (error) {
+        console.error("Error updating payment status:", error);
+        res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
 
 
     // using aggregate pipeline
@@ -720,10 +727,10 @@ app.post("/cancel-payment", async (req, res) => {
           $group: {
             _id: '$templateItem.category',
             quantity: { $sum: 1 },
-            revenue: { $sum: '$templateItem.price' }
+            revenue: { $sum: '$templateItem.amount' }
           }
         },
-        
+
         {
           $project: {
             _id: 0,
