@@ -492,50 +492,57 @@ async function run() {
     });
 
 
-    // Route to get monthly statistics
+    // monthly statistics
 
     app.get('/monthly-stats', verifyToken, verifyAdmin, async (req, res) => {
       const { month, year } = req.query;
-
+    
+      // Validate month and year
       if (!month || !year) {
-        return res.status(400).send({ message: 'Month and year are required' });
+          return res.status(400).send({ message: 'Month and year are required' });
       }
-
+    
+      // Define the start and end dates based on the selected month and year
       const startDate = new Date(year, month - 1, 1);
       const endDate = new Date(year, month, 0);
-
+    
       try {
-        const orders = await paymentCollection.countDocuments({
-          createdAt: { $gte: startDate, $lte: endDate },
-          status: 'success'  // Count only successful payments
-        });
-
-        const result = await paymentCollection.aggregate([
-          {
-            $match: {
-              createdAt: { $gte: startDate, $lte: endDate },
-              status: 'success'  // Only consider successful payments for revenue
-            }
-          },
-          {
-            $group: {
-              _id: null,
-              totalRevenue: { $sum: '$amount' }
-            }
-          }
-        ]).toArray();
-
-        const revenue = result.length > 0 ? result[0].totalRevenue : 0;
-
-        res.send({
-          orders,
-          revenue
-        });
+          // Count successful orders based on `_id` timestamp
+          const orders = await paymentCollection.countDocuments({
+              _id: { $gte: ObjectId.createFromTime(startDate.getTime() / 1000), $lt: ObjectId.createFromTime(endDate.getTime() / 1000) },
+              status: 'success' // Count only successful payments
+          });
+    
+          // Aggregate revenue from successful payments
+          const result = await paymentCollection.aggregate([
+              {
+                  $match: {
+                      _id: { $gte: ObjectId.createFromTime(startDate.getTime() / 1000), $lt: ObjectId.createFromTime(endDate.getTime() / 1000) },
+                      status: 'success' // Only consider successful payments for revenue
+                  }
+              },
+              {
+                  $group: {
+                      _id: null,
+                      totalRevenue: { $sum: '$amount' }
+                  }
+              }
+          ]).toArray();
+    
+          const revenue = result.length > 0 ? result[0].totalRevenue : 0;
+    
+          // Send the data with orders and revenue
+          res.send({
+              orders,
+              revenue
+          });
+    
       } catch (error) {
-        console.error('Error fetching monthly stats:', error);
-        res.status(500).send({ message: 'Internal Server Error' });
+          console.error('Error fetching monthly stats:', error);
+          res.status(500).send({ message: 'Internal Server Error', error: error.message });
       }
     });
+    
 
 
 
