@@ -550,66 +550,78 @@ async function run() {
 
     app.post("/create-payment", async (req, res) => {
       try {
-        const { amount, customerEmail } = req.body;
-
-        const sslcommerz = new SSLCommerzPayment(store_id, store_passwd, is_live);
-
-        const data = {
-          store_id: process.env.STORE_ID,
-          store_passwd: process.env.STORE_PASS,
-          total_amount: amount,
-          currency: 'BDT',
-          tran_id: new Date().getTime().toString(),
-          success_url: "http://localhost:5000/success-payment",
-          fail_url: "http://localhost:5000/fail-payment",
-          cancel_url: "http://localhost:5000/cancel-payment",
-          cus_email: customerEmail,
-          cus_add1: "Dhaka",
-          cus_add2: "Dhaka",
-          cus_city: "Dhaka",
-          cus_state: "Dhaka",
-          cus_postcode: 1000,
-          cus_country: "Bangladesh",
-          cus_phone: "01711111111",
-          cus_fax: "01711111111",
-          shipping_method: "NO",
-          product_name: "Template",
-          product_category: "Design",
-          product_profile: "general",
-          multi_card_name: "mastercard,visacard,amexcard",
-          value_a: "ref001_A",
-          value_b: "ref002_B",
-          value_c: "ref003_C",
-          value_d: "ref004_D",
-        };
-
-        const apiResponse = await sslcommerz.init(data);
-
-        if (apiResponse?.GatewayPageURL) {
-          const saveData = {
-            cus_email: customerEmail,
-            paymentId: data.tran_id,
-            amount: amount,
-            status: "pending",
+          const { amount, customerEmail } = req.body;
+  
+          // Step 1: Retrieve the tempId from the carts collection
+          const cartItem = await cartCollection.findOne({ email: customerEmail });
+          if (!cartItem) {
+              return res.status(404).send({ message: 'No cart item found for the user.' });
+          }
+  
+          const tempId = cartItem.tempId; // Assuming tempId exists in the cart item
+  
+          const sslcommerz = new SSLCommerzPayment(store_id, store_passwd, is_live);
+  
+          const data = {
+              store_id: process.env.STORE_ID,
+              store_passwd: process.env.STORE_PASS,
+              total_amount: amount,
+              currency: 'BDT',
+              tran_id: new Date().getTime().toString(),
+              success_url: "http://localhost:5000/success-payment",
+              fail_url: "http://localhost:5000/fail-payment",
+              cancel_url: "http://localhost:5000/cancel-payment",
+              cus_email: customerEmail,
+              cus_add1: "Dhaka",
+              cus_add2: "Dhaka",
+              cus_city: "Dhaka",
+              cus_state: "Dhaka",
+              cus_postcode: 1000,
+              cus_country: "Bangladesh",
+              cus_phone: "01711111111",
+              cus_fax: "01711111111",
+              shipping_method: "NO",
+              product_name: "Template",
+              product_category: "Design",
+              product_profile: "general",
+              multi_card_name: "mastercard,visacard,amexcard",
+              value_a: "ref001_A",
+              value_b: "ref002_B",
+              value_c: "ref003_C",
+              value_d: "ref004_D",
           };
-
-          // Save to database, ensure it's successful before responding
-          await paymentCollection.insertOne(saveData);
-
-          // Only respond if we haven't already sent a response
-          return res.send({ paymentUrl: apiResponse.GatewayPageURL });
-        } else {
-          return res.status(500).send({ message: 'Payment initialization failed.' });
-        }
+  
+          const apiResponse = await sslcommerz.init(data);
+  
+          if (apiResponse?.GatewayPageURL) {
+              const saveData = {
+                  cus_email: customerEmail,
+                  paymentId: data.tran_id,
+                  amount: amount,
+                  status: "pending",
+                  tempId: tempId // Include the tempId here
+              };
+  
+              // Save to database, ensure it's successful before responding
+              await paymentCollection.insertOne(saveData);
+  
+              // Only respond if we haven't already sent a response
+              return res.send({ paymentUrl: apiResponse.GatewayPageURL });
+          } else {
+              return res.status(500).send({ message: 'Payment initialization failed.' });
+          }
       } catch (error) {
-        console.error("Error creating payment:", error);
-
-        // Send error response only if we haven't sent one already
-        if (!res.headersSent) {
-          return res.status(500).send({ message: "Internal Server Error", error: error.message });
-        }
+          console.error("Error creating payment:", error);
+  
+          // Send error response only if we haven't sent one already
+          if (!res.headersSent) {
+              return res.status(500).send({ message: "Internal Server Error", error: error.message });
+          }
       }
-    });
+  });
+  
+  
+    
 
 
     // Payment success route
@@ -752,6 +764,9 @@ async function run() {
       res.send(result);
 
     });
+
+
+   
 
 
     // Send a ping to confirm a successful connection
