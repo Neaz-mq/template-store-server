@@ -431,24 +431,49 @@ async function run() {
     // cart collection apis
 
     app.get('/carts', async (req, res) => {
-      const email = req.query.email;
-      const query = { email: email };
-      const result = await cartCollection.find(query).toArray();
-      res.send(result);
+      try {
+        const email = req.query.email;
+        let query = {};
+        
+        // If an email is provided, filter by email
+        if (email) {
+          query = { email: email };
+        }
+    
+        // Fetch carts based on the query
+        const carts = await cartCollection.find(query).toArray();
+        res.send(carts); // Send the retrieved carts as a response
+      } catch (error) {
+        console.error('Error fetching carts:', error);
+        res.status(500).send({ message: 'Internal Server Error' });
+      }
     });
-
+    
+    // Post to add a cart item
     app.post('/carts', async (req, res) => {
-      const cartItem = req.body;
-      const result = await cartCollection.insertOne(cartItem);
-      res.send(result);
+      try {
+        const cartItem = req.body; // Expect cartItem data in the request body
+        const result = await cartCollection.insertOne(cartItem);
+        res.send(result); // Return the result of the insertion
+      } catch (error) {
+        console.error('Error adding cart item:', error);
+        res.status(500).send({ message: 'Internal Server Error' });
+      }
     });
-
+    
+    // Delete a cart item by ID
     app.delete('/carts/:id', async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) }
-      const result = await cartCollection.deleteOne(query);
-      res.send(result);
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) }; // Convert ID to ObjectId
+        const result = await cartCollection.deleteOne(query);
+        res.send(result); // Return the result of the deletion
+      } catch (error) {
+        console.error('Error deleting cart item:', error);
+        res.status(500).send({ message: 'Internal Server Error' });
+      }
     });
+    
 
     // Assuming you have an endpoint to handle payment confirmation
     app.post("/payment-confirmation", async (req, res) => {
@@ -724,6 +749,21 @@ async function run() {
         res.status(500).send({ message: "Internal Server Error" });
       }
     });
+
+    app.get('/payments/:paymentId', async (req, res) => {
+      try {
+          const paymentId = req.params.paymentId;
+          const payment = await paymentCollection.findOne({ paymentId }); // Change to query by paymentId
+          if (!payment) {
+              return res.status(404).send({ message: 'Payment not found' });
+          }
+          res.send(payment);
+      } catch (error) {
+          console.error('Error fetching payment:', error);
+          res.status(500).send({ message: 'Internal Server Error' });
+      }
+  });
+  
 
 
     // using aggregate pipeline
