@@ -558,8 +558,9 @@ async function run() {
               return res.status(404).send({ message: 'No cart items found for the user.' });
           }
   
-          // Step 2: Extract all tempIds and calculate the total amount
+          // Step 2: Extract all tempIds and types, and calculate the total amount
           const tempIds = cartItems.map(item => item.tempId); // Collect all tempIds
+          const types = cartItems.map(item => item.type); // Collect all types
           const totalAmount = cartItems.reduce((total, item) => total + item.price, 0); // Calculate total amount
   
           const sslcommerz = new SSLCommerzPayment(store_id, store_passwd, is_live);
@@ -601,7 +602,8 @@ async function run() {
                   paymentId: data.tran_id,
                   amount: totalAmount, // Save the total amount
                   status: "pending",
-                  tempId: tempIds // Include multiple tempIds here as an array
+                  tempId: tempIds, // Include multiple tempIds here as an array
+                  types: types // Include types here as an array
               };
   
               // Save to database, ensure it's successful before responding
@@ -621,6 +623,7 @@ async function run() {
           }
       }
   });
+  
   
   
     
