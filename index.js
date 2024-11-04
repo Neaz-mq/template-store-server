@@ -552,20 +552,22 @@ async function run() {
       try {
           const { amount, customerEmail } = req.body;
   
-          // Step 1: Retrieve the tempId from the carts collection
-          const cartItem = await cartCollection.findOne({ email: customerEmail });
-          if (!cartItem) {
-              return res.status(404).send({ message: 'No cart item found for the user.' });
+          // Step 1: Retrieve the cart items from the carts collection
+          const cartItems = await cartCollection.find({ email: customerEmail }).toArray(); // Retrieve all cart items for the user
+          if (cartItems.length === 0) {
+              return res.status(404).send({ message: 'No cart items found for the user.' });
           }
   
-          const tempId = cartItem.tempId; // Assuming tempId exists in the cart item
+          // Step 2: Extract all tempIds and calculate the total amount
+          const tempIds = cartItems.map(item => item.tempId); // Collect all tempIds
+          const totalAmount = cartItems.reduce((total, item) => total + item.price, 0); // Calculate total amount
   
           const sslcommerz = new SSLCommerzPayment(store_id, store_passwd, is_live);
   
           const data = {
               store_id: process.env.STORE_ID,
               store_passwd: process.env.STORE_PASS,
-              total_amount: amount,
+              total_amount: totalAmount, // Use totalAmount here
               currency: 'BDT',
               tran_id: new Date().getTime().toString(),
               success_url: "http://localhost:5000/success-payment",
@@ -597,9 +599,9 @@ async function run() {
               const saveData = {
                   cus_email: customerEmail,
                   paymentId: data.tran_id,
-                  amount: amount,
+                  amount: totalAmount, // Save the total amount
                   status: "pending",
-                  tempId: tempId // Include the tempId here
+                  tempId: tempIds // Include multiple tempIds here as an array
               };
   
               // Save to database, ensure it's successful before responding
