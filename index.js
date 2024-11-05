@@ -569,8 +569,6 @@ async function run() {
     });
     
 
-
-
     // SSLCommerz Payment Route
 
     app.post("/create-payment", async (req, res) => {
@@ -649,10 +647,6 @@ async function run() {
       }
   });
   
-  
-  
-    
-
 
     // Payment success route
 
@@ -761,9 +755,6 @@ async function run() {
     }
   });
 
- 
-
-
 
 // Route to get payment by tran_id
 app.get('/payments/tran/:tranId', async (req, res) => {
@@ -783,11 +774,6 @@ app.get('/payments/tran/:tranId', async (req, res) => {
       res.status(500).json({ message: 'Internal server error', error });
   }
 });
-
-
-
-  
-  
 
 
     // using aggregate pipeline
@@ -833,10 +819,6 @@ app.get('/payments/tran/:tranId', async (req, res) => {
       res.send(result);
 
     });
-
-
-   
-
 
     // Send a ping to confirm a successful connection
 
