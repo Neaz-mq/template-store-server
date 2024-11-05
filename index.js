@@ -750,19 +750,43 @@ async function run() {
       }
     });
 
-    app.get('/payments/:paymentId', async (req, res) => {
-      try {
-          const paymentId = req.params.paymentId;
-          const payment = await paymentCollection.findOne({ paymentId }); // Change to query by paymentId
-          if (!payment) {
-              return res.status(404).send({ message: 'Payment not found' });
-          }
-          res.send(payment);
-      } catch (error) {
-          console.error('Error fetching payment:', error);
-          res.status(500).send({ message: 'Internal Server Error' });
-      }
+
+  app.get('/payments', async (req, res) => {
+    try {
+      const payments = await paymentCollection.find().toArray(); // Fetch all payment documents
+      res.send(payments); // Send the retrieved payments as a response
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+      res.status(500).send({ message: 'Internal Server Error' });
+    }
   });
+
+ 
+
+
+
+// Route to get payment by tran_id
+app.get('/payments/tran/:tranId', async (req, res) => {
+  const tranId = req.params.tranId; // Get the transaction ID from the request parameters
+
+  try {
+      // Query the payments collection for the document with the specified tran_id
+      const payment = await paymentCollection.findOne({ paymentId: tranId });
+      
+      if (!payment) {
+          return res.status(404).json({ message: 'Payment not found' });
+      }
+
+      res.json(payment); // Return the found payment document
+  } catch (error) {
+      console.error(error); // Log the error for debugging
+      res.status(500).json({ message: 'Internal server error', error });
+  }
+});
+
+
+
+  
   
 
 
