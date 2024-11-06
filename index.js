@@ -579,22 +579,26 @@ async function run() {
           const { amount, customerEmail } = req.body;
   
           // Step 1: Retrieve the cart items from the carts collection
-          const cartItems = await cartCollection.find({ email: customerEmail }).toArray(); // Retrieve all cart items for the user
+          const cartItems = await cartCollection.find({ email: customerEmail }).toArray();
           if (cartItems.length === 0) {
               return res.status(404).send({ message: 'No cart items found for the user.' });
           }
   
-          // Step 2: Extract all tempIds and types, and calculate the total amount
-          const tempIds = cartItems.map(item => item.tempId); // Collect all tempIds
-          const types = cartItems.map(item => item.type); // Collect all types
-          const totalAmount = cartItems.reduce((total, item) => total + item.price, 0); // Calculate total amount
+          // Step 2: Extract all tempIds, types, and records, and calculate the total amount
+          const tempIds = cartItems.map(item => item.tempId);
+          const types = cartItems.map(item => item.type);
+  
+          // Safely handle missing or undefined 'record' fields
+          const records = cartItems.map(item => item.records || []).flat(); // Flatten in case records is an array
+  
+          const totalAmount = cartItems.reduce((total, item) => total + item.price, 0);
   
           const sslcommerz = new SSLCommerzPayment(store_id, store_passwd, is_live);
   
           const data = {
               store_id: process.env.STORE_ID,
               store_passwd: process.env.STORE_PASS,
-              total_amount: totalAmount, // Use totalAmount here
+              total_amount: totalAmount,
               currency: 'BDT',
               tran_id: new Date().getTime().toString(),
               success_url: "http://localhost:5000/success-payment",
@@ -626,16 +630,16 @@ async function run() {
               const saveData = {
                   cus_email: customerEmail,
                   paymentId: data.tran_id,
-                  amount: totalAmount, // Save the total amount
+                  amount: totalAmount,
                   status: "pending",
-                  tempId: tempIds, // Include multiple tempIds here as an array
-                  types: types // Include types here as an array
+                  tempId: tempIds,
+                  types: types,
+                  records: records, // Include records here
               };
   
-              // Save to database, ensure it's successful before responding
+              // Save to database
               await paymentCollection.insertOne(saveData);
   
-              // Only respond if we haven't already sent a response
               return res.send({ paymentUrl: apiResponse.GatewayPageURL });
           } else {
               return res.status(500).send({ message: 'Payment initialization failed.' });
@@ -643,12 +647,12 @@ async function run() {
       } catch (error) {
           console.error("Error creating payment:", error);
   
-          // Send error response only if we haven't sent one already
           if (!res.headersSent) {
               return res.status(500).send({ message: "Internal Server Error", error: error.message });
           }
       }
   });
+  
   
 
     // Payment success route
