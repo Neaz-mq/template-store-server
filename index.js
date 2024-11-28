@@ -360,8 +360,7 @@ async function run() {
 
     });
 
-
-    // Exclusive Template
+// Exclusive Template
 
     app.get('/exclusive', async (req, res) => {
       const result = await exclusiveCollection.find().toArray();
@@ -380,7 +379,7 @@ async function run() {
       const query = { _id: new ObjectId(id) }
       const options = {
         // Include only the `title` and `imdb` fields in the returned document
-        projection: { type: 1, category: 1,  price: 1  image: 1, description: 1, specifications: 1, product: 1, documents: 1, picture: 1,  packages: 1,  basics: 1, standards: 1, premiums: 1, amount: 1, money: 1, charge: 1, records: 1 },
+        projection: { type: 1, category: 1,  price: 1,  image: 1, description: 1, specifications: 1, product: 1, documents: 1, picture: 1,  packages: 1,  basics: 1, standards: 1, premiums: 1, amount: 1, money: 1, charge: 1, records: 1 },
       };
       const result = await exclusiveCollection.findOne(query, options);
       res.send(result);
