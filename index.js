@@ -379,7 +379,7 @@ async function run() {
       const query = { _id: new ObjectId(id) }
       const options = {
         // Include only the `title` and `imdb` fields in the returned document
-        projection: { type: 1, category: 1,  price: 1,  image: 1, description: 1, specifications: 1, product: 1, documents: 1, picture: 1,  packages: 1,  basics: 1, standards: 1, premiums: 1, amount: 1, money: 1, charge: 1, records: 1 },
+        projection: { type: 1, category: 1,  price: 1,  image: 1, description: 1, specifications: 1, product: 1, documents: 1, picture: 1, records: 1 },
       };
       const result = await exclusiveCollection.findOne(query, options);
       res.send(result);
@@ -408,13 +408,6 @@ async function run() {
           product: temp.product,
           documents: temp.documents,
           picture: temp.picture,
-          packages: temp.packages,
-          basics: temp.basics,
-          standards: temp.standards,
-          premiums: temp.premiums,
-          amount: temp.amount,
-          money: temp.money,
-          charge: temp.charge,
           records: temp.records
 
         }
@@ -601,7 +594,6 @@ async function run() {
               store_id: process.env.STORE_ID,
               store_passwd: process.env.STORE_PASS,
               total_amount: totalAmount,
-              currency: 'BDT',
               tran_id: new Date().getTime().toString(),
               success_url: "http://localhost:5000/success-payment",
               fail_url: "http://localhost:5000/fail-payment",
