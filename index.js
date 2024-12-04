@@ -253,7 +253,7 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const options = {
-        projection: { type: 1, category: 1, price: 1, image: 1, description: 1, specifications: 1, product: 1, documents: 1, picture: 1, revisions: 1, files: 1 },
+        projection: { type: 1, category: 1, price: 1, image: 1, description: 1, specifications: 1, product: 1, documents: 1, picture: 1, records: 1 },
       };
 
       const result = await templateCollection.findOne(query, options);
@@ -287,10 +287,10 @@ async function run() {
           description: temp.description,
           specifications: temp.specifications,
           product: temp.product,
-          revisions: temp.revisions,
+          records: temp.records,
           documents: temp.documents,
           picture: temp.picture,
-          files: temp.files,
+          
         }
       }
 
