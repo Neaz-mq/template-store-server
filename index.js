@@ -1,13 +1,62 @@
 const express = require('express');
-const app = express();
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 // const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const port = process.env.PORT || 5000;
-
 const SSLCommerzPayment = require('sslcommerz-lts');
+const http = require('http');
+const app = express();
+const server = http.createServer(app);
+const socketIo = require("socket.io");
+const io = socketIo(server);
 
+let messagesCollection;
+
+io.on("connection", (socket) => {
+  console.log("A user connected");
+
+  // Listen for incoming messages
+  socket.on("sendMessage", async (data) => {
+    console.log("Received message:", data);
+
+    // Ensure only the user's email is sent
+    const userEmail = data.user?.email; // Safely access `email` field
+
+    if (!userEmail) {
+      console.error("User email is missing in the data");
+      return;
+    }
+    // Construct the message object to include only the email
+    const messageData = {
+      user: userEmail, // Save only the email
+      message: data.message,
+      timestamp: new Date(),
+    };
+
+    try {
+      await messagesCollection.insertOne(messageData);
+      console.log("Message saved to MongoDB:", messageData);
+
+      // Emit the message to all clients with the sender's email
+      io.emit("receiveMessage", {
+        email: userEmail, // Send only the email
+        message: data.message,
+        timestamp: new Date(),
+      });
+
+      // Optional: Send a notification to the sender or other clients if needed.
+      if (data.user?.displayName !== 'Admin') {  // Skip notification to admin if admin is the sender
+        socket.broadcast.emit("receiveNotification", {
+          user: data.user.displayName || 'Anonymous', // Sender's name or 'Anonymous'
+          message: data.message, // Message content
+        });
+      }
+    } catch (error) {
+      console.error("Failed to save message to MongoDB:", error);
+    }
+  });
+});
 
 // Increase payload size limit (example: 50MB)
 app.use(express.json({ limit: '50mb' }));
@@ -39,8 +88,7 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   }
 });
-
-
+/*  */
 async function run() {
 
   try {
@@ -55,6 +103,95 @@ async function run() {
     const paymentCollection = client.db("templateDb").collection("payments");
     const visitCollection = client.db("templateDb").collection("visits");
     const exclusiveCollection = client.db("templateDb").collection("exclusive");
+    const messagesCollection = client.db("templateDb").collection("messages");
+
+   
+  // Fetch all messages for a specific user
+app.get('/messages', async (req, res) => {
+  const email = req.query.email;  // Fetch email from query parameters
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+  try {
+    // Fetch messages only for the specified user
+    const messages = await messagesCollection.find({ email }).toArray();
+    res.json(messages);  // Send back the messages for this email
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+
+    
+// Save a new message
+app.post('/messages', async (req, res) => {
+  try {
+    const { user, message } = req.body;
+    if (!user?.email || !message) {
+      return res.status(400).json({ error: 'Invalid message data' });
+    }
+
+    const sanitizedMessage = {
+      email: user.email,
+      message,
+      timestamp: new Date(),
+    };
+
+    await messagesCollection.insertOne(sanitizedMessage);
+    res.status(201).send("Message saved");
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+
+
+io.on("connection", async (socket) => {
+  console.log("User connected");
+
+  socket.on("joinRoom", async (email) => {
+    console.log(`User joined room: ${email}`);
+    socket.join(email); // Join room specific to the user's email
+
+    // Fetch and send previous messages for this user
+    try {
+      const previousMessages = await messagesCollection.find({ email }).toArray();
+      socket.emit("loadPreviousMessages", previousMessages);  // Send previous messages back to client
+    } catch (err) {
+      console.error("Error fetching previous messages:", err);
+    }
+  });
+
+  socket.on("sendMessage", async (data) => {
+    const { email, message } = data;
+    if (!email || !message) {
+      console.error("Invalid message data");
+      return;
+    }
+
+    const sanitizedMessage = {
+      email,
+      message,
+      timestamp: new Date(),
+    };
+
+
+    try {
+      // Save the sanitized message to the database
+      await messagesCollection.insertOne(sanitizedMessage);
+
+       // Broadcast the message to the specific room
+       io.to(email).emit("receiveMessage", sanitizedMessage);
+    } catch (err) {
+      console.error("Error saving or broadcasting message:", err.message);
+    }
+  })
+
+   
+  socket.on("disconnect", () => {
+    console.log("A user disconnected");
+  });
+});
+
+
 
     app.post('/api/visit', async (req, res) => {
       console.log('Visit endpoint hit'); // Add this line for debugging
