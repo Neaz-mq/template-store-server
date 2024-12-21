@@ -12,12 +12,19 @@ const socketIo = require("socket.io");
 const io = socketIo(server);
 
 let messagesCollection;
+let adminSocketId; // Variable to track the admin's socket ID
 
 io.on("connection", (socket) => {
   console.log("A user connected");
 
   // Listen for incoming messages
   socket.on("sendMessage", async (data) => {
+    const { email, message } = data;
+    if (!email || !message) {
+      console.error("Invalid message data");
+      return;
+    }
+
     console.log("Received message:", data);
 
     // Ensure only the user's email is sent
@@ -88,6 +95,13 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   }
 });
+
+client.connect().then(() => {
+  messagesCollection = client.db("templateDb").collection("messages");
+});
+
+
+
 /*  */
 async function run() {
 
@@ -147,6 +161,12 @@ app.post('/messages', async (req, res) => {
 io.on("connection", async (socket) => {
   console.log("User connected");
 
+  // Track the admin's socket ID
+  socket.on('joinAdmin', () => {
+    adminSocketId = socket.id;  // Store the socket ID for the admin
+    console.log("Admin connected with socket ID:", adminSocketId);
+  });
+
   socket.on("joinRoom", async (email) => {
     console.log(`User joined room: ${email}`);
     socket.join(email); // Join room specific to the user's email
@@ -159,6 +179,7 @@ io.on("connection", async (socket) => {
       console.error("Error fetching previous messages:", err);
     }
   });
+
 
   socket.on("sendMessage", async (data) => {
     const { email, message } = data;
@@ -178,17 +199,32 @@ io.on("connection", async (socket) => {
       // Save the sanitized message to the database
       await messagesCollection.insertOne(sanitizedMessage);
 
+      // If the message is from a user (not admin), notify the admin
+      if (data.user?.role !== 'admin') {
+        // Broadcast the message to the admin (adminSocketId should be tracked)
+        if (adminSocketId) {
+          io.to(adminSocketId).emit("receiveMessage", sanitizedMessage);
+        } else {
+          console.error("Admin is not connected.");
+        }
+      }
+
        // Broadcast the message to the specific room
        io.to(email).emit("receiveMessage", sanitizedMessage);
+
     } catch (err) {
       console.error("Error saving or broadcasting message:", err.message);
     }
   })
 
-   
-  socket.on("disconnect", () => {
-    console.log("A user disconnected");
-  });
+    // Handle disconnection
+    socket.on("disconnect", () => {
+      console.log("A user disconnected");
+      // Optional: Reset the adminSocketId if needed
+      if (socket.id === adminSocketId) {
+        adminSocketId = null;  // If admin disconnects, clear socket ID
+      }
+    });
 });
 
 
