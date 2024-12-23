@@ -766,9 +766,9 @@ io.on("connection", async (socket) => {
               store_passwd: process.env.STORE_PASS,
               total_amount: totalAmount,
               tran_id: new Date().getTime().toString(),
-              success_url: "http://localhost:5000/success-payment",
-              fail_url: "http://localhost:5000/fail-payment",
-              cancel_url: "http://localhost:5000/cancel-payment",
+              success_url: "https://template-store-server.vercel.app/success-payment",
+              fail_url: "https://template-store-server.vercel.app/fail-payment",
+              cancel_url: "https://template-store-server.vercel.app/cancel-payment",
               cus_email: customerEmail,
               cus_add1: "Dhaka",
               cus_add2: "Dhaka",
@@ -843,7 +843,7 @@ io.on("connection", async (socket) => {
         // Clear the user's cart after successful payment
         await cartCollection.deleteMany({ email: successData.cus_email });
 
-        res.redirect('http://localhost:5173/dashboard/paymentHistory?fromPaymentSuccess=true');
+        res.redirect('https://prographr.com/dashboard/paymentHistory?fromPaymentSuccess=true');
       } catch (error) {
         console.error("Error updating payment status:", error);
         res.status(500).send({ message: "Internal Server Error" });
@@ -883,7 +883,7 @@ io.on("connection", async (socket) => {
 
         // No need to clear the user's cart in case of a failed payment
 
-        res.redirect("http://localhost:5173/dashboard/fail-payment");
+        res.redirect("https://prographr.com/dashboard/fail-payment");
       } catch (error) {
         console.error("Error updating payment status:", error);
         res.status(500).send({ message: "Internal Server Error" });
@@ -909,7 +909,7 @@ io.on("connection", async (socket) => {
 
         // No need to clear the user's cart in case of a canceled payment
 
-        res.redirect("http://localhost:5173/dashboard/cancel-payment")
+        res.redirect("https://prographr.com/dashboard/cancel-payment")
       } catch (error) {
         console.error("Error updating payment status:", error);
         res.status(500).send({ message: "Internal Server Error" });
