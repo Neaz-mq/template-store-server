@@ -118,6 +118,7 @@ async function run() {
     const visitCollection = client.db("templateDb").collection("visits");
     const exclusiveCollection = client.db("templateDb").collection("exclusive");
     const messagesCollection = client.db("templateDb").collection("messages");
+    const offerCollection = client.db("templateDb").collection("offer");
 
    
   // Fetch all messages for a specific user
@@ -413,6 +414,8 @@ io.on("connection", async (socket) => {
       }
     });
 
+    
+
 
     // template related apis
 
@@ -530,6 +533,51 @@ io.on("connection", async (socket) => {
       res.send(result);
 
     });
+
+
+    // Banner Related apis
+
+    app.get('/offer', async (req, res) => {
+      const result = await offerCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.post('/offer', verifyToken, verifyAdmin, async (req, res) => {
+      const offer = req.body;
+      const result = await offerCollection.insertOne(offer);
+      res.send(result);
+    });
+
+    app.get('/offer/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const options = {
+        projection: { image: 1 },
+      };
+      const result = await offerCollection.findOne(query, options);
+      res.send(result);
+    });
+
+    app.patch('/offer/:id', async (req, res) => {
+      const offer = req.body;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) }
+      const updatedDoc = {
+        $set: {      
+          image: offer.image,            
+        }
+      }
+      const result = await offerCollection.updateOne(filter, updatedDoc)
+      res.send(result);
+    });
+
+    app.delete('/offer/:id', verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await offerCollection.deleteOne(query);
+      res.send(result);
+    });
+
 
 // Exclusive Template
 
