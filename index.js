@@ -552,7 +552,7 @@ io.on("connection", async (socket) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const options = {
-        projection: { description: 1,  text: 1, background: 1, image: 1 },
+        projection: { description: 1, details: 1,  text: 1, background: 1, image: 1 },
       };
       const result = await offerCollection.findOne(query, options);
       res.send(result);
@@ -565,6 +565,7 @@ io.on("connection", async (socket) => {
       const updatedDoc = {
         $set: {  
           description: offer.description,  
+          details: offer.details,  
           text: offer.text, 
           background: offer.background,
           image: offer.image,            
