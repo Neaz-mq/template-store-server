@@ -822,9 +822,9 @@ io.on("connection", async (socket) => {
               store_passwd: process.env.STORE_PASS,
               total_amount: totalAmount,
               tran_id: new Date().getTime().toString(),
-              success_url: "https://template-store-server.vercel.app/success-payment",
-              fail_url: "https://template-store-server.vercel.app/fail-payment",
-              cancel_url: "https://template-store-server.vercel.app/cancel-payment",
+              success_url: "http://localhost:5000/success-payment",
+              fail_url: "http://localhost:5000/fail-payment",
+              cancel_url: "http://localhost:5000/cancel-payment",
               cus_email: customerEmail,
               cus_add1: "Dhaka",
               cus_add2: "Dhaka",
@@ -899,7 +899,7 @@ io.on("connection", async (socket) => {
         // Clear the user's cart after successful payment
         await cartCollection.deleteMany({ email: successData.cus_email });
 
-        res.redirect('https://prographr.com/dashboard/paymentHistory?fromPaymentSuccess=true');
+        res.redirect('http://localhost:5173/dashboard/paymentHistory?fromPaymentSuccess=true');
       } catch (error) {
         console.error("Error updating payment status:", error);
         res.status(500).send({ message: "Internal Server Error" });
