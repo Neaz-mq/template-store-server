@@ -602,7 +602,7 @@ io.on("connection", async (socket) => {
       const query = { _id: new ObjectId(id) }
       const options = {
         // Include only the `title` and `imdb` fields in the returned document
-        projection: { type: 1, category: 1,  price: 1,  image: 1, description: 1, specifications: 1, product: 1, documents: 1, picture: 1, records: 1 },
+        projection: { type: 1, category: 1,  price: 1,  image: 1, description: 1, specifications: 1, product: 1, documents: 1, picture: 1, records: 1, money: 1, license: 1, regular: 1, extended: 1},
       };
       const result = await exclusiveCollection.findOne(query, options);
       res.send(result);
@@ -631,7 +631,11 @@ io.on("connection", async (socket) => {
           product: temp.product,
           documents: temp.documents,
           picture: temp.picture,
-          records: temp.records
+          records: temp.records,
+          money: temp.money,
+          regular: temp.regular,
+          extended: temp.extended,
+          license: temp.license
 
         }
       }
