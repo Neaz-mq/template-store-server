@@ -119,6 +119,7 @@ async function run() {
     const exclusiveCollection = client.db("templateDb").collection("exclusive");
     const messagesCollection = client.db("templateDb").collection("messages");
     const offerCollection = client.db("templateDb").collection("offer");
+    const dealCollection = client.db("templateDb").collection("deal");
 
    
   // Fetch all messages for a specific user
@@ -552,7 +553,7 @@ io.on("connection", async (socket) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const options = {
-        projection: { description: 1, details: 1,  text: 1, background: 1, image: 1 },
+        projection: { description: 1, details: 1,  text: 1, background: 1, image: 1, sub: 1 },
       };
       const result = await offerCollection.findOne(query, options);
       res.send(result);
@@ -569,6 +570,7 @@ io.on("connection", async (socket) => {
           text: offer.text, 
           background: offer.background,
           image: offer.image,            
+          sub: offer.sub           
         }
       }
       const result = await offerCollection.updateOne(filter, updatedDoc)
@@ -581,6 +583,62 @@ io.on("connection", async (socket) => {
       const result = await offerCollection.deleteOne(query);
       res.send(result);
     });
+
+
+     // Deal Related apis
+
+     app.get('/deal', async (req, res) => {
+      const result = await dealCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.post('/deal', verifyToken, verifyAdmin, async (req, res) => {
+      const offer = req.body;
+      const result = await dealCollection.insertOne(offer);
+      res.send(result);
+    });
+
+    app.get('/deal/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const options = {
+        projection: { description: 1, paragraph: 1, details: 1, summary: 1, text: 1, sub: 1, color: 1, variant: 1,  background: 1, image: 1, photo: 1 },
+      };
+      const result = await dealCollection.findOne(query, options);
+      res.send(result);
+    });
+
+    app.patch('/deal/:id', async (req, res) => {
+      const deal = req.body;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) }
+      const updatedDoc = {
+        $set: {  
+          description: deal.description,  
+          paragraph: deal.paragraph,  
+          details: deal.details,  
+          summary: deal.summary,  
+          text: deal.text, 
+          sub: deal.sub,
+          color: deal.color,
+          variant: deal.variant,
+          background: deal.background,
+          image: deal.image,            
+          photo: deal.photo           
+                     
+        }
+      }
+      const result = await dealCollection.updateOne(filter, updatedDoc)
+      res.send(result);
+    });
+
+    app.delete('/offer/:id', verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await dealCollection.deleteOne(query);
+      res.send(result);
+    });
+
 
 
 // Exclusive Template
