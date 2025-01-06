@@ -602,7 +602,7 @@ io.on("connection", async (socket) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const options = {
-        projection: { description: 1, paragraph: 1, details: 1, summary: 1, text: 1, sub: 1, color: 1, variant: 1,  background: 1, image: 1, photo: 1 },
+        projection: { description: 1, paragraph: 1, details: 1, summary: 1, text: 1, sub: 1, color: 1, variant: 1,  background: 1, back: 1, image: 1, photo: 1 },
       };
       const result = await dealCollection.findOne(query, options);
       res.send(result);
@@ -623,6 +623,7 @@ io.on("connection", async (socket) => {
           color: deal.color,
           variant: deal.variant,
           background: deal.background,
+          back: deal.back,
           image: deal.image,            
           photo: deal.photo           
                      
