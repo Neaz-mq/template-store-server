@@ -430,8 +430,9 @@ io.on("connection", async (socket) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const options = {
-        projection: { type: 1, category: 1, price: 1, image: 1, description: 1, specifications: 1, product: 1, documents: 1, picture: 1, records: 1 },
+        projection: {  type: 1, category: 1,  price: 1,  image: 1, description: 1, specifications: 1, product: 1, documents: 1, picture: 1, records: 1, money: 1, license: 1, regular: 1, extended: 1 },
       };
+      
 
       const result = await templateCollection.findOne(query, options);
       res.send(result);
@@ -459,15 +460,18 @@ io.on("connection", async (socket) => {
         $set: {
           type: temp.type,
           category: temp.category,
-          price: temp.price,
           image: temp.image,
+          price: temp.price,
           description: temp.description,
           specifications: temp.specifications,
           product: temp.product,
-          records: temp.records,
           documents: temp.documents,
           picture: temp.picture,
-          
+          records: temp.records,
+          money: temp.money,
+          regular: temp.regular,
+          extended: temp.extended,
+          license: temp.license          
         }
       }
 
