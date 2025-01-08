@@ -606,7 +606,7 @@ io.on("connection", async (socket) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const options = {
-        projection: { description: 1, paragraph: 1, details: 1, summary: 1, text: 1, sub: 1, color: 1, variant: 1,  background: 1, back: 1, image: 1, photo: 1 },
+        projection: { description: 1, paragraph: 1, explanation: 1, representation: 1, details: 1, summary: 1, feature: 1, describe: 1, text: 1, sub: 1, shade: 1, tone: 1, color: 1, variant: 1, paint: 1, blush: 1,  background: 1, back: 1, framework: 1, frame: 1, image: 1, photo: 1 , picture: 1, figure: 1 },
       };
       const result = await dealCollection.findOne(query, options);
       res.send(result);
@@ -620,17 +620,28 @@ io.on("connection", async (socket) => {
         $set: {  
           description: deal.description,  
           paragraph: deal.paragraph,  
+          explanation: deal.explanation,  
+          representation: deal.representation,  
           details: deal.details,  
           summary: deal.summary,  
+          feature: deal.feature,  
+          describe: deal.describe,  
           text: deal.text, 
           sub: deal.sub,
+          shade: deal.shade,
+          tone: deal.tone,
           color: deal.color,
           variant: deal.variant,
+          paint: deal.paint,
+          blush: deal.blush,
           background: deal.background,
           back: deal.back,
+          framework: deal.framework,
+          frame: deal.frame,
           image: deal.image,            
-          photo: deal.photo           
-                     
+          photo: deal.photo,           
+          picture: deal.picture,           
+          figure: deal.figure                               
         }
       }
       const result = await dealCollection.updateOne(filter, updatedDoc)
