@@ -883,22 +883,37 @@ io.on("connection", async (socket) => {
           // Step 2: Extract all tempIds, types, and records, and calculate the total amount
           const tempIds = cartItems.map(item => item.tempId);
           const types = cartItems.map(item => item.type);
+          const records = cartItems.map(item => item.records || []).flat();
   
-          // Safely handle missing or undefined 'record' fields
-          const records = cartItems.map(item => item.records || []).flat(); // Flatten in case records is an array
+          // Total amount in USD
+          const totalAmountInUSD = cartItems.reduce((total, item) => total + item.price, 0);
   
-          const totalAmount = cartItems.reduce((total, item) => total + item.price, 0);
+          // Step 3: Fetch USD to BDT exchange rate from Open Exchange Rates API
+          const exchangeRateApiUrl = `https://v6.exchangerate-api.com/v6/${process.env.EXCHANGE_RATE}/latest/USD`;
+          const exchangeRateResponse = await axios.get(exchangeRateApiUrl);
+          
+          // Get the exchange rate for USD to BDT from the API response
+          const exchangeRate = exchangeRateResponse.data.conversion_rates.BDT;
+          
+          if (!exchangeRate) {
+              return res.status(500).send({ message: 'Unable to fetch exchange rate.' });
+          }
   
+          // Convert the total amount from USD to BDT
+          const totalAmountInBDT = totalAmountInUSD * exchangeRate;
+  
+          // Initialize SSLCommerz
           const sslcommerz = new SSLCommerzPayment(store_id, store_passwd, is_live);
   
+          // Prepare data for the payment request
           const data = {
               store_id: process.env.STORE_ID,
               store_passwd: process.env.STORE_PASS,
-              total_amount: totalAmount,
+              total_amount: totalAmountInBDT, // Send amount in BDT
               tran_id: new Date().getTime().toString(),
-              success_url: "https://template-store-server.vercel.app/success-payment",
-              fail_url: "https://template-store-server.vercel.app/fail-payment",
-              cancel_url: "https://template-store-server.vercel.app/cancel-payment",
+              success_url: "http://localhost:5000/success-payment",
+              fail_url: "http://localhost:5000/fail-payment",
+              cancel_url: "http://localhost:5000/cancel-payment",
               cus_email: customerEmail,
               cus_add1: "Dhaka",
               cus_add2: "Dhaka",
@@ -919,20 +934,21 @@ io.on("connection", async (socket) => {
               value_d: "ref004_D",
           };
   
+          // Step 4: Initialize the payment using SSLCommerz
           const apiResponse = await sslcommerz.init(data);
   
           if (apiResponse?.GatewayPageURL) {
               const saveData = {
                   cus_email: customerEmail,
                   paymentId: data.tran_id,
-                  amount: totalAmount,
+                  amount: totalAmountInUSD, // Save in USD for your reference
                   status: "pending",
                   tempId: tempIds,
                   types: types,
                   records: records, // Include records here
               };
   
-              // Save to database
+              // Save payment record to the database
               await paymentCollection.insertOne(saveData);
   
               return res.send({ paymentUrl: apiResponse.GatewayPageURL });
@@ -947,6 +963,8 @@ io.on("connection", async (socket) => {
           }
       }
   });
+  
+  
   
   
 
@@ -973,7 +991,7 @@ io.on("connection", async (socket) => {
         // Clear the user's cart after successful payment
         await cartCollection.deleteMany({ email: successData.cus_email });
 
-        res.redirect('https://prographr.com/dashboard/paymentHistory?fromPaymentSuccess=true');
+        res.redirect('http://localhost:5173/dashboard/paymentHistory?fromPaymentSuccess=true');
       } catch (error) {
         console.error("Error updating payment status:", error);
         res.status(500).send({ message: "Internal Server Error" });
@@ -1013,7 +1031,7 @@ io.on("connection", async (socket) => {
 
         // No need to clear the user's cart in case of a failed payment
 
-        res.redirect("https://prographr.com/dashboard/fail-payment");
+        res.redirect("http://localhost:5173/dashboard/fail-payment");
       } catch (error) {
         console.error("Error updating payment status:", error);
         res.status(500).send({ message: "Internal Server Error" });
@@ -1039,7 +1057,7 @@ io.on("connection", async (socket) => {
 
         // No need to clear the user's cart in case of a canceled payment
 
-        res.redirect("https://prographr.com/dashboard/cancel-payment")
+        res.redirect("http://localhost:5173/dashboard/cancel-payment")
       } catch (error) {
         console.error("Error updating payment status:", error);
         res.status(500).send({ message: "Internal Server Error" });
