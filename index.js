@@ -392,9 +392,10 @@ async function run() {
     // template related apis
 
     app.get('/template', async (req, res) => {
-      const result = await templateCollection.find().toArray();
+      const result = await templateCollection.find().sort({ _id: -1 }).toArray(); // Sorts by `_id` in descending order
       res.send(result);
     });
+    
 
     app.get('/template/:id', async (req, res) => {
       const id = req.params.id;
