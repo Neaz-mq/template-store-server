@@ -109,18 +109,16 @@ async function run() {
 
     // Fetch all messages for a specific user
     app.get('/messages', async (req, res) => {
-      const email = req.query.email;  // Fetch email from query parameters
-      if (!email) {
-        return res.status(400).json({ error: 'Email is required' });
-      }
+      const email = req.query.email; // Optional email query parameter
       try {
-        // Fetch messages only for the specified user
-        const messages = await messagesCollection.find({ email }).toArray();
-        res.json(messages);  // Send back the messages for this email
+        const filter = email ? { email } : {}; // Fetch all messages if no email is provided
+        const messages = await messagesCollection.find(filter).toArray();
+        res.json(messages);
       } catch (err) {
         res.status(500).send(err.message);
       }
     });
+    
 
 
     // Save a new message
@@ -867,9 +865,9 @@ async function run() {
           store_passwd: process.env.STORE_PASS,
           total_amount: totalAmountInBDT, // Send amount in BDT
           tran_id: new Date().getTime().toString(),
-          success_url: "https://template-store-server.vercel.app/success-payment",
-          fail_url: "https://template-store-server.vercel.app/fail-payment",
-          cancel_url: "https://template-store-server.vercel.app/cancel-payment",
+          success_url: "http://localhost:5000/success-payment",
+          fail_url: "http://localhost:5000/fail-payment",
+          cancel_url: "http://localhost:5000/cancel-payment",
           cus_email: customerEmail,
           cus_add1: "Dhaka",
           cus_add2: "Dhaka",
@@ -944,7 +942,7 @@ async function run() {
         // Clear the user's cart after successful payment
         await cartCollection.deleteMany({ email: successData.cus_email });
 
-        res.redirect('https://prographr.com/dashboard/paymentHistory?fromPaymentSuccess=true');
+        res.redirect('http://localhost:5173/dashboard/paymentHistory?fromPaymentSuccess=true');
       } catch (error) {
         console.error("Error updating payment status:", error);
         res.status(500).send({ message: "Internal Server Error" });
@@ -983,7 +981,7 @@ async function run() {
 
         // No need to clear the user's cart in case of a failed payment
 
-        res.redirect("https://prographr.com/dashboard/fail-payment");
+        res.redirect("http://localhost:5173/dashboard/fail-payment");
       } catch (error) {
         console.error("Error updating payment status:", error);
         res.status(500).send({ message: "Internal Server Error" });
@@ -1008,7 +1006,7 @@ async function run() {
 
         // No need to clear the user's cart in case of a canceled payment
 
-        res.redirect("https://prographr.com/dashboard/cancel-payment")
+        res.redirect("http://localhost:5173/dashboard/cancel-payment")
       } catch (error) {
         console.error("Error updating payment status:", error);
         res.status(500).send({ message: "Internal Server Error" });
