@@ -105,6 +105,7 @@ async function run() {
     const messagesCollection = client.db("templateDb").collection("messages");
     const offerCollection = client.db("templateDb").collection("offer");
     const dealCollection = client.db("templateDb").collection("deal");
+    const repliesCollection = client.db("templateDb").collection("replies");
 
 
     // Fetch all messages for a specific user
@@ -142,6 +143,47 @@ async function run() {
       }
     });
 
+
+     // Fetch all replies for a specific user
+     app.get('/replies', async (req, res) => {
+      const email = req.query.email; // Optional email query parameter
+      try {
+        const filter = email ? { email } : {}; // Fetch all replies if no email is provided
+        const replies = await repliesCollection.find(filter).toArray();
+        res.json(replies);
+      } catch (err) {
+        res.status(500).send(err.reply);
+      }
+    });
+    
+
+
+    // Save a new message
+    
+    app.post('/replies', async (req, res) => {
+      try {
+        const { messageId, reply, name } = req.body;
+    
+        // Validate required fields
+        if (!messageId || !reply || !name) {
+          return res.status(400).json({ error: 'Invalid reply data' });
+        }
+    
+        const sanitizedReply = {
+          messageId,
+          reply,
+          name, // Include the user's or admin's name
+          timestamp: new Date(),
+        };
+    
+        await repliesCollection.insertOne(sanitizedReply);
+        res.status(201).send("Reply saved");
+      } catch (err) {
+        res.status(500).send(err.message);
+      }
+    });
+    
+    
 
     io.on("connection", async (socket) => {
       console.log("User connected");
