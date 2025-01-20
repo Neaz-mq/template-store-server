@@ -121,7 +121,6 @@ async function run() {
     });
     
 
-
     // Save a new message
     app.post('/messages', async (req, res) => {
       try {
@@ -143,7 +142,6 @@ async function run() {
       }
     });
 
-
      // Fetch all replies for a specific user
      app.get('/replies', async (req, res) => {
       const email = req.query.email; // User's email from query parameters
@@ -161,7 +159,6 @@ async function run() {
       }
     });
     
-
 
     // Save a new message
     
@@ -189,8 +186,6 @@ async function run() {
     });
     
     
-    
-
     io.on("connection", async (socket) => {
       console.log("User connected");
 
@@ -664,7 +659,6 @@ async function run() {
       res.send(result);
     });
 
-
     // Exclusive Template
 
     app.get('/exclusive', async (req, res) => {
@@ -725,7 +719,6 @@ async function run() {
       res.send(result);
 
     });
-
 
     // testimonials related apis
 
@@ -966,7 +959,6 @@ async function run() {
       }
     });
 
-
     // Payment success route
 
     app.post("/success-payment", async (req, res) => {
@@ -1071,7 +1063,6 @@ async function run() {
         res.status(500).send({ message: 'Internal Server Error' });
       }
     });
-
 
     // Route to get payment by tran_id
     app.get('/payments/tran/:tranId', async (req, res) => {
