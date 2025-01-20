@@ -146,13 +146,18 @@ async function run() {
 
      // Fetch all replies for a specific user
      app.get('/replies', async (req, res) => {
-      const email = req.query.email; // Optional email query parameter
+      const email = req.query.email; // User's email from query parameters
       try {
-        const filter = email ? { email } : {}; // Fetch all replies if no email is provided
-        const replies = await repliesCollection.find(filter).toArray();
+        // Find all messages for the user based on email
+        const messages = await client.db("templateDb").collection("messages").find({ "user.email": email }).toArray();
+      
+        // Extract message IDs to filter replies
+        const messageIds = messages.map((msg) => msg._id.toString());
+        const replies = await repliesCollection.find({ messageId: { $in: messageIds } }).toArray();
+      
         res.json(replies);
       } catch (err) {
-        res.status(500).send(err.reply);
+        res.status(500).json({ error: "Failed to fetch replies" });
       }
     });
     
@@ -162,17 +167,17 @@ async function run() {
     
     app.post('/replies', async (req, res) => {
       try {
-        const { messageId, reply, name } = req.body;
+        const { messageId, reply, email } = req.body;
     
         // Validate required fields
-        if (!messageId || !reply || !name) {
+        if (!messageId || !reply || !email) {
           return res.status(400).json({ error: 'Invalid reply data' });
         }
     
         const sanitizedReply = {
           messageId,
           reply,
-          name, // Include the user's or admin's name
+          email, // Admin's email should be passed here
           timestamp: new Date(),
         };
     
@@ -182,6 +187,7 @@ async function run() {
         res.status(500).send(err.message);
       }
     });
+    
     
     
 
