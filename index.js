@@ -125,18 +125,28 @@ async function run() {
     app.post('/messages', async (req, res) => {
       try {
         const { user, message } = req.body;
+    
         if (!user?.email || !message) {
           return res.status(400).json({ error: 'Invalid message data' });
         }
-
+    
+        // Fetch the user's role from the users collection
+        const userRecord = await userCollection.findOne({ email: user.email });
+    
+        if (!userRecord) {
+          return res.status(404).json({ error: 'User not found' });
+        }
+    
+        // Add the role field if the user is found
         const sanitizedMessage = {
           email: user.email,
           message,
           timestamp: new Date(),
+          role: userRecord.role || 'user', // Default to 'user' if role is undefined
         };
-
+    
         await messagesCollection.insertOne(sanitizedMessage);
-        res.status(201).send("Message saved");
+        res.status(201).json({ message: 'Message saved', data: sanitizedMessage });
       } catch (err) {
         res.status(500).send(err.message);
       }
