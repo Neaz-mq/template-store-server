@@ -119,24 +119,24 @@ async function run() {
         res.status(500).send(err.message);
       }
     });
-    
+
 
     // Save a new message
     app.post('/messages', async (req, res) => {
       try {
         const { user, message } = req.body;
-    
+
         if (!user?.email || !message) {
           return res.status(400).json({ error: 'Invalid message data' });
         }
-    
+
         // Fetch the user's role from the users collection
         const userRecord = await userCollection.findOne({ email: user.email });
-    
+
         if (!userRecord) {
           return res.status(404).json({ error: 'User not found' });
         }
-    
+
         // Add the role field if the user is found
         const sanitizedMessage = {
           email: user.email,
@@ -144,7 +144,7 @@ async function run() {
           timestamp: new Date(),
           role: userRecord.role || 'user', // Default to 'user' if role is undefined
         };
-    
+
         await messagesCollection.insertOne(sanitizedMessage);
         res.status(201).json({ message: 'Message saved', data: sanitizedMessage });
       } catch (err) {
@@ -152,17 +152,23 @@ async function run() {
       }
     });
 
-     // Fetch all replies for a specific user
-     app.get('/replies', async (req, res) => {
+    // Fetch all replies for a specific user
+    app.get('/replies', async (req, res) => {
       const email = req.query.email; // User's email from query parameters
       try {
         // Find all messages for the user based on email
         const messages = await client.db("templateDb").collection("messages").find({ "user.email": email }).toArray();
-      
+        
         // Extract message IDs to filter replies
         const messageIds = messages.map((msg) => msg._id.toString());
         const replies = await repliesCollection.find({ messageId: { $in: messageIds } }).toArray();
-      
+    
+        // Attach role to each reply from the corresponding user (admin)
+        for (const reply of replies) {
+          const userRecord = await userCollection.findOne({ email: reply.email });
+          reply.role = userRecord?.role || 'admin'; // Default to 'admin' if not found
+        }
+    
         res.json(replies);
       } catch (err) {
         res.status(500).json({ error: "Failed to fetch replies" });
@@ -170,32 +176,42 @@ async function run() {
     });
     
 
+
     // Save a new message
-    
+
+    // Save a new reply
     app.post('/replies', async (req, res) => {
       try {
         const { messageId, reply, email } = req.body;
-    
+
         // Validate required fields
         if (!messageId || !reply || !email) {
           return res.status(400).json({ error: 'Invalid reply data' });
         }
-    
+
+        // Fetch the user's role (admin) from the users collection
+        const userRecord = await userCollection.findOne({ email: email });
+
+        if (!userRecord) {
+          return res.status(404).json({ error: 'User not found' });
+        }
+
         const sanitizedReply = {
           messageId,
           reply,
           email, // Admin's email should be passed here
+          role: userRecord.role || 'admin', // Assuming role is present in userCollection
           timestamp: new Date(),
         };
-    
+
         await repliesCollection.insertOne(sanitizedReply);
         res.status(201).send("Reply saved");
       } catch (err) {
         res.status(500).send(err.message);
       }
     });
-    
-    
+
+
     io.on("connection", async (socket) => {
       console.log("User connected");
 
@@ -446,7 +462,7 @@ async function run() {
       const result = await templateCollection.find().sort({ _id: -1 }).toArray(); // Sorts by `_id` in descending order
       res.send(result);
     });
-    
+
 
     app.get('/template/:id', async (req, res) => {
       const id = req.params.id;
