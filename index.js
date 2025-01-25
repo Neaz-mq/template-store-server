@@ -40,7 +40,6 @@ const client = new MongoClient(uri, {
   }
 });
 
-
 /*  */
 async function run() {
 
@@ -55,10 +54,9 @@ async function run() {
     const cartCollection = client.db("templateDb").collection("carts");
     const paymentCollection = client.db("templateDb").collection("payments");
     const visitCollection = client.db("templateDb").collection("visits");
-    const exclusiveCollection = client.db("templateDb").collection("exclusive"); 
-    const offerCollection = client.db("templateDb").collection("offer");
+    const exclusiveCollection = client.db("templateDb").collection("exclusive");
     const dealCollection = client.db("templateDb").collection("deal");
-  
+
 
     app.post('/api/visit', async (req, res) => {
       console.log('Visit endpoint hit'); // Add this line for debugging
@@ -243,17 +241,14 @@ async function run() {
       res.send(result);
     });
 
-
     app.get('/template/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const options = {
         projection: { type: 1, category: 1, price: 1, image: 1, description: 1, specifications: 1, product: 1, documents: 1, picture: 1, records: 1, money: 1, license: 1, regular: 1, extended: 1 },
       };
-
       const result = await templateCollection.findOne(query, options);
       res.send(result);
-
     });
 
     app.post('/template', verifyToken, verifyAdmin, async (req, res) => {
@@ -295,7 +290,6 @@ async function run() {
       const result = await templateCollection.updateOne(filter, updatedDoc)
       res.send(result);
     });
-
 
     // free template related apis
 
@@ -352,53 +346,6 @@ async function run() {
 
     // Banner Related apis
 
-    app.get('/offer', async (req, res) => {
-      const result = await offerCollection.find().toArray();
-      res.send(result);
-    });
-
-    app.post('/offer', verifyToken, verifyAdmin, async (req, res) => {
-      const offer = req.body;
-      const result = await offerCollection.insertOne(offer);
-      res.send(result);
-    });
-
-    app.get('/offer/:id', async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) }
-      const options = {
-        projection: { description: 1, details: 1, text: 1, background: 1, image: 1, sub: 1 },
-      };
-      const result = await offerCollection.findOne(query, options);
-      res.send(result);
-    });
-
-    app.patch('/offer/:id', async (req, res) => {
-      const offer = req.body;
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) }
-      const updatedDoc = {
-        $set: {
-          description: offer.description,
-          details: offer.details,
-          text: offer.text,
-          background: offer.background,
-          image: offer.image,
-          sub: offer.sub
-        }
-      }
-      const result = await offerCollection.updateOne(filter, updatedDoc)
-      res.send(result);
-    });
-
-    app.delete('/offer/:id', verifyToken, verifyAdmin, async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) }
-      const result = await offerCollection.deleteOne(query);
-      res.send(result);
-    });
-
-    // Deal Related apis
     app.get('/deal', async (req, res) => {
       const result = await dealCollection.find().toArray();
       res.send(result);
@@ -930,12 +877,8 @@ async function run() {
 
     });
 
-    // Send a ping to confirm a successful connection
-
-    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
-    // Ensures that the client will close when you finish/error
-    // await client.close();
+
   }
 }
 
