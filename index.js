@@ -2,54 +2,11 @@ const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
-// const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const port = process.env.PORT || 5000;
 const SSLCommerzPayment = require('sslcommerz-lts');
 const http = require('http');
-const { Server } = require('socket.io');
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
-
-let messagesCollection;
-let adminSocketId; // Variable to track the admin's socket ID
-
-// Middleware to authenticate user connections
-io.use((socket, next) => {
-  const { role } = socket.handshake.auth;
-  if (role === 'admin' || role === 'user') {
-    socket.role = role;
-    next();
-  } else {
-    next(new Error('Unauthorized'));
-  }
-});
-
-// Store connected clients
-const users = new Map();
-
-io.on('connection', (socket) => {
-  console.log(`${socket.role} connected: ${socket.id}`);
-
-  // Save user by socket ID
-  if (socket.role === 'user') users.set(socket.id, socket);
-
-  // Handle incoming messages
-  socket.on('message', (data) => {
-    const { recipientId, content } = data;
-    if (users.has(recipientId)) {
-      users.get(recipientId).emit('message', { senderId: socket.id, content });
-    } else {
-      io.to(recipientId).emit('message', { senderId: socket.id, content });
-    }
-  });
-
-  // Disconnect event
-  socket.on('disconnect', () => {
-    console.log(`${socket.role} disconnected: ${socket.id}`);
-    users.delete(socket.id);
-  });
-});
 
 
 // Increase payload size limit (example: 50MB)
@@ -83,9 +40,6 @@ const client = new MongoClient(uri, {
   }
 });
 
-client.connect().then(() => {
-  messagesCollection = client.db("templateDb").collection("messages");
-});
 
 /*  */
 async function run() {
@@ -101,184 +55,10 @@ async function run() {
     const cartCollection = client.db("templateDb").collection("carts");
     const paymentCollection = client.db("templateDb").collection("payments");
     const visitCollection = client.db("templateDb").collection("visits");
-    const exclusiveCollection = client.db("templateDb").collection("exclusive");
-    const messagesCollection = client.db("templateDb").collection("messages");
+    const exclusiveCollection = client.db("templateDb").collection("exclusive"); 
     const offerCollection = client.db("templateDb").collection("offer");
     const dealCollection = client.db("templateDb").collection("deal");
-    const repliesCollection = client.db("templateDb").collection("replies");
-
-
-    // Fetch all messages for a specific user
-    app.get('/messages', async (req, res) => {
-      const email = req.query.email; // Optional email query parameter
-      try {
-        const filter = email ? { email } : {}; // Fetch all messages if no email is provided
-        const messages = await messagesCollection.find(filter).toArray();
-        res.json(messages);
-      } catch (err) {
-        res.status(500).send(err.message);
-      }
-    });
-
-
-    // Save a new message
-    app.post('/messages', async (req, res) => {
-      try {
-        const { user, message } = req.body;
-
-        if (!user?.email || !message) {
-          return res.status(400).json({ error: 'Invalid message data' });
-        }
-
-        // Fetch the user's role from the users collection
-        const userRecord = await userCollection.findOne({ email: user.email });
-
-        if (!userRecord) {
-          return res.status(404).json({ error: 'User not found' });
-        }
-
-        // Add the role field if the user is found
-        const sanitizedMessage = {
-          email: user.email,
-          message,
-          timestamp: new Date(),
-          role: userRecord.role || 'user', // Default to 'user' if role is undefined
-        };
-
-        await messagesCollection.insertOne(sanitizedMessage);
-        res.status(201).json({ message: 'Message saved', data: sanitizedMessage });
-      } catch (err) {
-        res.status(500).send(err.message);
-      }
-    });
-
-    // Fetch all replies for a specific user
-    app.get('/replies', async (req, res) => {
-      const email = req.query.email; // User's email from query parameters
-      try {
-        // Find all messages for the user based on email
-        const messages = await client.db("templateDb").collection("messages").find({ "user.email": email }).toArray();
-        
-        // Extract message IDs to filter replies
-        const messageIds = messages.map((msg) => msg._id.toString());
-        const replies = await repliesCollection.find({ messageId: { $in: messageIds } }).toArray();
-    
-        // Attach role to each reply from the corresponding user (admin)
-        for (const reply of replies) {
-          const userRecord = await userCollection.findOne({ email: reply.email });
-          reply.role = userRecord?.role || 'admin'; // Default to 'admin' if not found
-        }
-    
-        res.json(replies);
-      } catch (err) {
-        res.status(500).json({ error: "Failed to fetch replies" });
-      }
-    });
-    
-
-
-    // Save a new message
-
-    // Save a new reply
-    app.post('/replies', async (req, res) => {
-      try {
-        const { messageId, reply, email } = req.body;
-
-        // Validate required fields
-        if (!messageId || !reply || !email) {
-          return res.status(400).json({ error: 'Invalid reply data' });
-        }
-
-        // Fetch the user's role (admin) from the users collection
-        const userRecord = await userCollection.findOne({ email: email });
-
-        if (!userRecord) {
-          return res.status(404).json({ error: 'User not found' });
-        }
-
-        const sanitizedReply = {
-          messageId,
-          reply,
-          email, // Admin's email should be passed here
-          role: userRecord.role || 'admin', // Assuming role is present in userCollection
-          timestamp: new Date(),
-        };
-
-        await repliesCollection.insertOne(sanitizedReply);
-        res.status(201).send("Reply saved");
-      } catch (err) {
-        res.status(500).send(err.message);
-      }
-    });
-
-
-    io.on("connection", async (socket) => {
-      console.log("User connected");
-
-      // Track the admin's socket ID
-      socket.on('joinAdmin', () => {
-        adminSocketId = socket.id;  // Store the socket ID for the admin
-        console.log("Admin connected with socket ID:", adminSocketId);
-      });
-
-      socket.on("joinRoom", async (email) => {
-        console.log(`User joined room: ${email}`);
-        socket.join(email); // Join room specific to the user's email
-
-        // Fetch and send previous messages for this user
-        try {
-          const previousMessages = await messagesCollection.find({ email }).toArray();
-          socket.emit("loadPreviousMessages", previousMessages);  // Send previous messages back to client
-        } catch (err) {
-          console.error("Error fetching previous messages:", err);
-        }
-      });
-
-
-      socket.on("sendMessage", async (data) => {
-        const { email, message } = data;
-        if (!email || !message) {
-          console.error("Invalid message data");
-          return;
-        }
-
-        const sanitizedMessage = {
-          email,
-          message,
-          timestamp: new Date(),
-        };
-
-        try {
-          // Save the sanitized message to the database
-          await messagesCollection.insertOne(sanitizedMessage);
-
-          // If the message is from a user (not admin), notify the admin
-          if (data.user?.role !== 'admin') {
-            // Broadcast the message to the admin (adminSocketId should be tracked)
-            if (adminSocketId) {
-              io.to(adminSocketId).emit("receiveMessage", sanitizedMessage);
-            } else {
-              console.error("Admin is not connected.");
-            }
-          }
-
-          // Broadcast the message to the specific room
-          io.to(email).emit("receiveMessage", sanitizedMessage);
-
-        } catch (err) {
-          console.error("Error saving or broadcasting message:", err.message);
-        }
-      })
-
-      // Handle disconnection
-      socket.on("disconnect", () => {
-        console.log("A user disconnected");
-        // Optional: Reset the adminSocketId if needed
-        if (socket.id === adminSocketId) {
-          adminSocketId = null;  // If admin disconnects, clear socket ID
-        }
-      });
-    });
+  
 
     app.post('/api/visit', async (req, res) => {
       console.log('Visit endpoint hit'); // Add this line for debugging
@@ -568,9 +348,7 @@ async function run() {
       }
       const result = await freeCollection.updateOne(filter, updatedDoc)
       res.send(result);
-
     });
-
 
     // Banner Related apis
 
@@ -1078,7 +856,6 @@ async function run() {
         res.status(500).send({ message: "Internal Server Error" });
       }
     });
-
 
     app.get('/payments', async (req, res) => {
       try {
