@@ -55,6 +55,7 @@ async function run() {
     const visitCollection = client.db("templateDb").collection("visits");
     const exclusiveCollection = client.db("templateDb").collection("exclusive");
     const dealCollection = client.db("templateDb").collection("deal");
+    const messageCollection = client.db("templateDb").collection("message");
 
 
     app.post('/api/visit', async (req, res) => {
@@ -168,7 +169,7 @@ async function run() {
 
     // users related api
 
-    app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
+    app.get('/users', async (req, res) => {
       console.log(req.headers);
       const result = await userCollection.find().toArray();
       res.send(result);
@@ -220,6 +221,30 @@ async function run() {
       const result = await userCollection.deleteOne(query);
       res.send(result);
     });
+
+
+    // check message working or not if not deleted:
+
+    // Fetch chat messages between two users
+app.get('/messages/:sender/:receiver',  async (req, res) => {
+  const { sender, receiver } = req.params;
+  const query = {
+    $or: [
+      { sender, receiver },
+      { sender: receiver, receiver: sender },
+    ],
+  };
+  const messages = await messageCollection.find(query).toArray();
+  res.send(messages);
+});
+
+// Save a new message
+app.post('/messages',  async (req, res) => {
+  const message = req.body;
+  const result = await messageCollection.insertOne(message);
+  res.send(result);
+});
+
 
     // Add this route to fetch admin users
 
