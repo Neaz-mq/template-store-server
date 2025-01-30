@@ -2,11 +2,13 @@ const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
+// const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const port = process.env.PORT || 5000;
 const SSLCommerzPayment = require('sslcommerz-lts');
 const http = require('http');
 const app = express();
 const server = http.createServer(app);
+
 
 // Increase payload size limit (example: 50MB)
 app.use(express.json({ limit: '50mb' }));
@@ -39,6 +41,8 @@ const client = new MongoClient(uri, {
   }
 });
 
+
+
 /*  */
 async function run() {
 
@@ -54,8 +58,6 @@ async function run() {
     const paymentCollection = client.db("templateDb").collection("payments");
     const visitCollection = client.db("templateDb").collection("visits");
     const exclusiveCollection = client.db("templateDb").collection("exclusive");
-    const dealCollection = client.db("templateDb").collection("deal");
-    const messageCollection = client.db("templateDb").collection("messages");
 
 
     app.post('/api/visit', async (req, res) => {
@@ -76,6 +78,7 @@ async function run() {
         res.status(500).send({ message: 'Internal Server Error' });
       }
     });
+
 
 
     app.get('/admin-stats', async (req, res) => {
@@ -127,6 +130,7 @@ async function run() {
       }
     });
 
+
     // jwt related api
 
     app.post('/jwt', async (req, res) => {
@@ -134,6 +138,7 @@ async function run() {
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
       res.send({ token });
     });
+
 
     // middlewares 
 
@@ -154,6 +159,7 @@ async function run() {
       })
     }
 
+
     // use verify admin after verifyToken
 
     const verifyAdmin = async (req, res, next) => {
@@ -169,11 +175,12 @@ async function run() {
 
     // users related api
 
-    app.get('/users', async (req, res) => {
+    app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
       console.log(req.headers);
       const result = await userCollection.find().toArray();
       res.send(result);
     });
+
 
     app.get('/users/admin/:email', verifyToken, async (req, res) => {
       const email = req.params.email;
@@ -181,6 +188,7 @@ async function run() {
       if (email !== req.decoded.email) {
         return res.status(403).send({ message: 'forbidden access' })
       }
+
       const query = { email: email };
       const user = await userCollection.findOne(query);
       let admin = false;
@@ -215,67 +223,13 @@ async function run() {
       res.send(result);
     });
 
+
     app.delete('/users/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const result = await userCollection.deleteOne(query);
       res.send(result);
     });
-
-
-    // check message working or not if not deleted:
-
-    // Fetch chat messages between two users
-    app.get('/messages/:sender/:receiver', async (req, res) => {
-      const { sender, receiver } = req.params;
-      const query = {
-        $or: [
-          { sender, receiver },
-          { sender: receiver, receiver: sender },
-        ],
-      };
-      const messages = await messageCollection.find(query).toArray();
-      res.send(messages);
-    });
-
-    // Save a new message
-    // POST /messages: Save a new message
-    app.post('/messages', async (req, res) => {
-      try {
-        const { receiverId, text } = req.body;
-    
-        // Temporary: Assign a hardcoded senderId for testing (replace with JWT extraction later)
-        
-    
-        // Validate request payload
-        if ( !receiverId || !text) {
-          return res.status(400).json({ error: "All fields (senderId, receiverId, text) are required." });
-        }
-    
-        // Insert message into MongoDB
-        const message = {
-         
-          receiverId,
-          text,
-          createdAt: new Date(),
-        };
-    
-        const result = await messageCollection.insertOne(message);
-    
-        // Respond with success
-        res.status(201).json({
-          message: "Message sent successfully.",
-          data: result.ops[0],
-        });
-      } catch (error) {
-        console.error("Error saving message:", error);
-        res.status(500).json({ error: "Internal Server Error" });
-      }
-    });
-    
-    
-
-
 
 
     // Add this route to fetch admin users
@@ -290,21 +244,25 @@ async function run() {
       }
     });
 
+
     // template related apis
 
     app.get('/template', async (req, res) => {
-      const result = await templateCollection.find().sort({ _id: -1 }).toArray(); // Sorts by `_id` in descending order
+      const result = await templateCollection.find().toArray();
       res.send(result);
     });
+
 
     app.get('/template/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const options = {
-        projection: { type: 1, category: 1, price: 1, image: 1, description: 1, specifications: 1, product: 1, documents: 1, picture: 1, records: 1, money: 1, license: 1, regular: 1, extended: 1 },
+        projection: { type: 1, category: 1, price: 1, image: 1, description: 1, specifications: 1, product: 1, documents: 1, picture: 1, records: 1 },
       };
+
       const result = await templateCollection.findOne(query, options);
       res.send(result);
+
     });
 
     app.post('/template', verifyToken, verifyAdmin, async (req, res) => {
@@ -328,24 +286,22 @@ async function run() {
         $set: {
           type: temp.type,
           category: temp.category,
-          image: temp.image,
           price: temp.price,
+          image: temp.image,
           description: temp.description,
           specifications: temp.specifications,
           product: temp.product,
+          records: temp.records,
           documents: temp.documents,
           picture: temp.picture,
-          records: temp.records,
-          money: temp.money,
-          regular: temp.regular,
-          extended: temp.extended,
-          license: temp.license
+
         }
       }
 
       const result = await templateCollection.updateOne(filter, updatedDoc)
       res.send(result);
     });
+
 
     // free template related apis
 
@@ -354,11 +310,13 @@ async function run() {
       res.send(result);
     });
 
+
     app.post('/free', verifyToken, verifyAdmin, async (req, res) => {
       const temp = req.body;
       const result = await freeCollection.insertOne(temp);
       res.send(result);
     });
+
 
     app.get('/free/:id', async (req, res) => {
       const id = req.params.id;
@@ -371,12 +329,14 @@ async function run() {
       res.send(result);
     });
 
+
     app.delete('/free/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const result = await freeCollection.deleteOne(query);
       res.send(result);
     });
+
 
     app.patch('/free/:id', async (req, res) => {
       const temp = req.body;
@@ -396,74 +356,10 @@ async function run() {
           records: temp.records
         }
       }
+
       const result = await freeCollection.updateOne(filter, updatedDoc)
       res.send(result);
-    });
 
-    // Banner Related apis
-
-    app.get('/deal', async (req, res) => {
-      const result = await dealCollection.find().toArray();
-      res.send(result);
-    });
-
-    app.post('/deal', verifyToken, verifyAdmin, async (req, res) => {
-      const offer = req.body;
-      const result = await dealCollection.insertOne(offer);
-      res.send(result);
-    });
-
-    app.get('/deal/:id', async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) }
-      const options = {
-        projection: { description: 1, paragraph: 1, explanation: 1, representation: 1, details: 1, summary: 1, feature: 1, describe: 1, text: 1, sub: 1, shade: 1, tone: 1, color: 1, variant: 1, paint: 1, blush: 1, background: 1, back: 1, framework: 1, frame: 1, image: 1, photo: 1, picture: 1, figure: 1 },
-      };
-      const result = await dealCollection.findOne(query, options);
-      res.send(result);
-    });
-
-    app.patch('/deal/:id', async (req, res) => {
-      const deal = req.body;
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) }
-      const updatedDoc = {
-        $set: {
-          description: deal.description,
-          paragraph: deal.paragraph,
-          explanation: deal.explanation,
-          representation: deal.representation,
-          details: deal.details,
-          summary: deal.summary,
-          feature: deal.feature,
-          describe: deal.describe,
-          text: deal.text,
-          color: deal.color,
-          shade: deal.shade,
-          tone: deal.tone,
-          sub: deal.sub,
-          variant: deal.variant,
-          paint: deal.paint,
-          blush: deal.blush,
-          background: deal.background,
-          back: deal.back,
-          framework: deal.framework,
-          frame: deal.frame,
-          image: deal.image,
-          photo: deal.photo,
-          picture: deal.picture,
-          figure: deal.figure
-        }
-      }
-      const result = await dealCollection.updateOne(filter, updatedDoc)
-      res.send(result);
-    });
-
-    app.delete('/deal/:id', verifyToken, verifyAdmin, async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) }
-      const result = await dealCollection.deleteOne(query);
-      res.send(result);
     });
 
     // Exclusive Template
@@ -479,12 +375,13 @@ async function run() {
       res.send(result);
     });
 
+
     app.get('/exclusive/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const options = {
         // Include only the `title` and `imdb` fields in the returned document
-        projection: { type: 1, category: 1, price: 1, image: 1, description: 1, specifications: 1, product: 1, documents: 1, picture: 1, records: 1, money: 1, license: 1, regular: 1, extended: 1 },
+        projection: { type: 1, category: 1, price: 1, image: 1, description: 1, specifications: 1, product: 1, documents: 1, picture: 1, records: 1 },
       };
       const result = await exclusiveCollection.findOne(query, options);
       res.send(result);
@@ -513,11 +410,7 @@ async function run() {
           product: temp.product,
           documents: temp.documents,
           picture: temp.picture,
-          records: temp.records,
-          money: temp.money,
-          regular: temp.regular,
-          extended: temp.extended,
-          license: temp.license
+          records: temp.records
 
         }
       }
@@ -526,6 +419,7 @@ async function run() {
       res.send(result);
 
     });
+
 
     // testimonials related apis
 
@@ -580,12 +474,14 @@ async function run() {
       }
     });
 
+
     // Assuming you have an endpoint to handle payment confirmation
     app.post("/payment-confirmation", async (req, res) => {
       const paymentData = req.body; // This should include payment details
 
       // Example structure for paymentData
       // const { email, status } = paymentData;
+
       try {
         // Check payment status
         if (paymentData.status === "success") {
@@ -619,6 +515,8 @@ async function run() {
         return res.status(500).send({ message: "Internal Server Error" });
       }
     });
+
+
     // monthly statistics
 
     app.get('/monthly-stats', verifyToken, verifyAdmin, async (req, res) => {
@@ -670,6 +568,7 @@ async function run() {
       }
     });
 
+
     // SSLCommerz Payment Route
 
     app.post("/create-payment", async (req, res) => {
@@ -685,37 +584,22 @@ async function run() {
         // Step 2: Extract all tempIds, types, and records, and calculate the total amount
         const tempIds = cartItems.map(item => item.tempId);
         const types = cartItems.map(item => item.type);
-        const records = cartItems.map(item => item.records || []).flat();
 
-        // Total amount in USD
-        const totalAmountInUSD = cartItems.reduce((total, item) => total + item.price, 0);
+        // Safely handle missing or undefined 'record' fields
+        const records = cartItems.map(item => item.records || []).flat(); // Flatten in case records is an array
 
-        // Step 3: Fetch USD to BDT exchange rate from Open Exchange Rates API
-        const exchangeRateApiUrl = `https://v6.exchangerate-api.com/v6/${process.env.EXCHANGE_RATE}/latest/USD`;
-        const exchangeRateResponse = await axios.get(exchangeRateApiUrl);
+        const totalAmount = cartItems.reduce((total, item) => total + item.price, 0);
 
-        // Get the exchange rate for USD to BDT from the API response
-        const exchangeRate = exchangeRateResponse.data.conversion_rates.BDT;
-
-        if (!exchangeRate) {
-          return res.status(500).send({ message: 'Unable to fetch exchange rate.' });
-        }
-
-        // Convert the total amount from USD to BDT
-        const totalAmountInBDT = totalAmountInUSD * exchangeRate;
-
-        // Initialize SSLCommerz
         const sslcommerz = new SSLCommerzPayment(store_id, store_passwd, is_live);
 
-        // Prepare data for the payment request
         const data = {
           store_id: process.env.STORE_ID,
           store_passwd: process.env.STORE_PASS,
-          total_amount: totalAmountInBDT, // Send amount in BDT
+          total_amount: totalAmount,
           tran_id: new Date().getTime().toString(),
-          success_url: "http://localhost:5000/success-payment",
-          fail_url: "http://localhost:5000/fail-payment",
-          cancel_url: "http://localhost:5000/cancel-payment",
+          success_url: "https://template-store-server.vercel.app/success-payment",
+          fail_url: "https://template-store-server.vercel.app/fail-payment",
+          cancel_url: "https://template-store-server.vercel.app/cancel-payment",
           cus_email: customerEmail,
           cus_add1: "Dhaka",
           cus_add2: "Dhaka",
@@ -736,21 +620,20 @@ async function run() {
           value_d: "ref004_D",
         };
 
-        // Step 4: Initialize the payment using SSLCommerz
         const apiResponse = await sslcommerz.init(data);
 
         if (apiResponse?.GatewayPageURL) {
           const saveData = {
             cus_email: customerEmail,
             paymentId: data.tran_id,
-            amount: totalAmountInUSD, // Save in USD for your reference
+            amount: totalAmount,
             status: "pending",
             tempId: tempIds,
             types: types,
             records: records, // Include records here
           };
 
-          // Save payment record to the database
+          // Save to database
           await paymentCollection.insertOne(saveData);
 
           return res.send({ paymentUrl: apiResponse.GatewayPageURL });
@@ -765,6 +648,8 @@ async function run() {
         }
       }
     });
+
+
 
     // Payment success route
 
@@ -789,7 +674,7 @@ async function run() {
         // Clear the user's cart after successful payment
         await cartCollection.deleteMany({ email: successData.cus_email });
 
-        res.redirect('http://localhost:5173/dashboard/paymentHistory?fromPaymentSuccess=true');
+        res.redirect('https://prographr.com/dashboard/paymentHistory?fromPaymentSuccess=true');
       } catch (error) {
         console.error("Error updating payment status:", error);
         res.status(500).send({ message: "Internal Server Error" });
@@ -807,6 +692,7 @@ async function run() {
         res.status(500).send({ message: 'Internal Server Error' });
       }
     });
+
 
     // Payment fail route
 
@@ -828,12 +714,13 @@ async function run() {
 
         // No need to clear the user's cart in case of a failed payment
 
-        res.redirect("http://localhost:5173/dashboard/fail-payment");
+        res.redirect("https://prographr.com/dashboard/fail-payment");
       } catch (error) {
         console.error("Error updating payment status:", error);
         res.status(500).send({ message: "Internal Server Error" });
       }
     });
+
 
     app.post("/cancel-payment", async (req, res) => {
       try {
@@ -853,12 +740,13 @@ async function run() {
 
         // No need to clear the user's cart in case of a canceled payment
 
-        res.redirect("http://localhost:5173/dashboard/cancel-payment")
+        res.redirect("https://prographr.com/dashboard/cancel-payment")
       } catch (error) {
         console.error("Error updating payment status:", error);
         res.status(500).send({ message: "Internal Server Error" });
       }
     });
+
 
     app.get('/payments', async (req, res) => {
       try {
@@ -869,6 +757,7 @@ async function run() {
         res.status(500).send({ message: 'Internal Server Error' });
       }
     });
+
 
     // Route to get payment by tran_id
     app.get('/payments/tran/:tranId', async (req, res) => {
@@ -888,6 +777,7 @@ async function run() {
         res.status(500).json({ message: 'Internal server error', error });
       }
     });
+
 
     // using aggregate pipeline
 
@@ -933,8 +823,12 @@ async function run() {
 
     });
 
-  } finally {
+    // Send a ping to confirm a successful connection
 
+    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
+  } finally {
+    // Ensures that the client will close when you finish/error
+    // await client.close();
   }
 }
 
