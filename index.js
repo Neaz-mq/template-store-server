@@ -286,11 +286,9 @@ async function run() {
           license: temp.license
         }
       }
-
       const result = await templateCollection.updateOne(filter, updatedDoc)
       res.send(result);
     });
-
 
     // free template related apis
 
@@ -309,7 +307,6 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const options = {
-        // Include only the `title` and `imdb` fields in the returned document
         projection: { type: 1, category: 1, price: 1, image: 1, description: 1, specifications: 1, product: 1, documents: 1, picture: 1, records: 1 },
       };
       const result = await freeCollection.findOne(query, options);
@@ -343,12 +340,9 @@ async function run() {
       }
       const result = await freeCollection.updateOne(filter, updatedDoc)
       res.send(result);
-
     });
 
-
     // Banner Related apis
-
     app.get('/deal', async (req, res) => {
       const result = await dealCollection.find().toArray();
       res.send(result);
