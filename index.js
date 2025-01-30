@@ -55,7 +55,7 @@ async function run() {
     const visitCollection = client.db("templateDb").collection("visits");
     const exclusiveCollection = client.db("templateDb").collection("exclusive");
     const dealCollection = client.db("templateDb").collection("deal");
-    const messageCollection = client.db("templateDb").collection("message");
+    const messageCollection = client.db("templateDb").collection("messages");
 
 
     app.post('/api/visit', async (req, res) => {
@@ -239,11 +239,43 @@ async function run() {
     });
 
     // Save a new message
+    // POST /messages: Save a new message
     app.post('/messages', async (req, res) => {
-      const message = req.body;
-      const result = await messageCollection.insertOne(message);
-      res.send(result);
+      try {
+        const { receiverId, text } = req.body;
+    
+        // Temporary: Assign a hardcoded senderId for testing (replace with JWT extraction later)
+        
+    
+        // Validate request payload
+        if ( !receiverId || !text) {
+          return res.status(400).json({ error: "All fields (senderId, receiverId, text) are required." });
+        }
+    
+        // Insert message into MongoDB
+        const message = {
+         
+          receiverId,
+          text,
+          createdAt: new Date(),
+        };
+    
+        const result = await messageCollection.insertOne(message);
+    
+        // Respond with success
+        res.status(201).json({
+          message: "Message sent successfully.",
+          data: result.ops[0],
+        });
+      } catch (error) {
+        console.error("Error saving message:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+      }
     });
+    
+    
+
+
 
 
     // Add this route to fetch admin users
