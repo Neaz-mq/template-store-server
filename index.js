@@ -54,7 +54,69 @@ async function run() {
     const visitCollection = client.db("templateDb").collection("visits");
     const exclusiveCollection = client.db("templateDb").collection("exclusive");
     const dealCollection = client.db("templateDb").collection("deal");
+    const messagesCollection = client.db("templateDb").collection("messages");
 
+    // API Route to store messages in MongoDB
+    app.post("/send-message", async (req, res) => {
+      try {
+        const { message, email, senderId } = req.body;
+    
+        if (!message || !email || !senderId) {
+          return res.status(400).json({ error: "Missing required fields" });
+        }
+    
+        // Fetch user's role from the database
+        const user = await userCollection.findOne({ email });
+        // Default role to 'user' if no role is found
+        const userRole = user && user.role ? user.role : 'user';
+    
+        // If the sender is a user, find all admins to send the message to
+        let receiverIds = [];
+        if (userRole === 'user') {
+          const admins = await userCollection.find({ role: 'admin' }).toArray();
+          receiverIds = admins.map(admin => admin._id);
+        }
+    
+        // Create the message data, including the user's role and receiver ids (for admins)
+        const newMessage = {
+          message,
+          email,
+          senderId,
+          role: userRole, // Ensure role is added (default to 'user' if null)
+          receiverIds, // Add receiver IDs for admins
+          timestamp: new Date(),
+        };
+    
+        const result = await messagesCollection.insertOne(newMessage);
+        res.status(201).json({ success: true, message: "Message saved!", data: result });
+      } catch (error) {
+        console.error("Message saving error:", error);
+        res.status(500).json({ error: "Internal server error" });
+      }
+    });
+    
+  
+  
+
+    // API Route to get all messages
+    app.get("/get-messages/:email", async (req, res) => {
+      try {
+        const { email } = req.params;
+        if (!email) {
+          return res.status(400).json({ error: "Email is required" });
+        }
+    
+        const messages = await messagesCollection
+          .find({ email }) // Fetch messages where email matches the logged-in user
+          .sort({ timestamp: 1 })
+          .toArray();
+    
+        res.status(200).json({ success: true, data: messages });
+      } catch (error) {
+        console.error("Message fetching error:", error);
+        res.status(500).json({ error: "Internal server error" });
+      }
+    });
 
     app.post('/api/visit', async (req, res) => {
       console.log('Visit endpoint hit'); // Add this line for debugging
@@ -238,7 +300,7 @@ async function run() {
       const result = await templateCollection.find().sort({ _id: -1 }).toArray(); // Sorts by `_id` in descending order
       res.send(result);
     });
-    
+
     app.get('/template/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
