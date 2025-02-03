@@ -54,68 +54,7 @@ async function run() {
     const visitCollection = client.db("templateDb").collection("visits");
     const exclusiveCollection = client.db("templateDb").collection("exclusive");
     const dealCollection = client.db("templateDb").collection("deal");
-    const messagesCollection = client.db("templateDb").collection("messages");
 
-    // API Route to store messages in MongoDB
-    app.post("/send-message", async (req, res) => {
-      try {
-        const { message, email, senderId } = req.body;
-    
-        if (!message || !email || !senderId) {
-          return res.status(400).json({ error: "Missing required fields" });
-        }
-    
-        // Fetch user's role from the database
-        const user = await userCollection.findOne({ email });
-        // Default role to 'user' if no role is found
-        const userRole = user && user.role ? user.role : 'user';
-    
-        // If the sender is a user, find all admins to send the message to
-        let receiverIds = [];
-        if (userRole === 'user') {
-          const admins = await userCollection.find({ role: 'admin' }).toArray();
-          receiverIds = admins.map(admin => admin._id);
-        }
-    
-        // Create the message data, including the user's role and receiver ids (for admins)
-        const newMessage = {
-          message,
-          email,
-          senderId,
-          role: userRole, // Ensure role is added (default to 'user' if null)
-          receiverIds, // Add receiver IDs for admins
-          timestamp: new Date(),
-        };
-    
-        const result = await messagesCollection.insertOne(newMessage);
-        res.status(201).json({ success: true, message: "Message saved!", data: result });
-      } catch (error) {
-        console.error("Message saving error:", error);
-        res.status(500).json({ error: "Internal server error" });
-      }
-    });
-    
-  
-  
-    // API Route to get all messages
-    app.get("/get-messages/:email", async (req, res) => {
-      try {
-        const { email } = req.params;
-        if (!email) {
-          return res.status(400).json({ error: "Email is required" });
-        }
-    
-        const messages = await messagesCollection
-          .find({ email }) // Fetch messages where email matches the logged-in user
-          .sort({ timestamp: 1 })
-          .toArray();
-    
-        res.status(200).json({ success: true, data: messages });
-      } catch (error) {
-        console.error("Message fetching error:", error);
-        res.status(500).json({ error: "Internal server error" });
-      }
-    });
 
     app.post('/api/visit', async (req, res) => {
       console.log('Visit endpoint hit'); // Add this line for debugging
@@ -299,7 +238,7 @@ async function run() {
       const result = await templateCollection.find().sort({ _id: -1 }).toArray(); // Sorts by `_id` in descending order
       res.send(result);
     });
-
+    
     app.get('/template/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
@@ -717,9 +656,9 @@ async function run() {
           store_passwd: process.env.STORE_PASS,
           total_amount: totalAmountInBDT, // Send amount in BDT
           tran_id: new Date().getTime().toString(),
-          success_url: "http://localhost:5000/success-payment",
-          fail_url: "http://localhost:5000/fail-payment",
-          cancel_url: "http://localhost:5000/cancel-payment",
+          success_url: "https://template-store-server.vercel.app/success-payment",
+          fail_url: "https://template-store-server.vercel.app/fail-payment",
+          cancel_url: "https://template-store-server.vercel.app/cancel-payment",
           cus_email: customerEmail,
           cus_add1: "Dhaka",
           cus_add2: "Dhaka",
@@ -794,7 +733,7 @@ async function run() {
         // Clear the user's cart after successful payment
         await cartCollection.deleteMany({ email: successData.cus_email });
 
-        res.redirect('http://localhost:5173/dashboard/paymentHistory?fromPaymentSuccess=true');
+        res.redirect('https://prographr.com/dashboard/paymentHistory?fromPaymentSuccess=true');
       } catch (error) {
         console.error("Error updating payment status:", error);
         res.status(500).send({ message: "Internal Server Error" });
@@ -833,7 +772,7 @@ async function run() {
 
         // No need to clear the user's cart in case of a failed payment
 
-        res.redirect("http://localhost:5173/dashboard/fail-payment");
+        res.redirect("https://prographr.com/dashboard/fail-payment");
       } catch (error) {
         console.error("Error updating payment status:", error);
         res.status(500).send({ message: "Internal Server Error" });
@@ -858,7 +797,7 @@ async function run() {
 
         // No need to clear the user's cart in case of a canceled payment
 
-        res.redirect("http://localhost:5173/dashboard/cancel-payment")
+        res.redirect("https://prographr.com/dashboard/cancel-payment")
       } catch (error) {
         console.error("Error updating payment status:", error);
         res.status(500).send({ message: "Internal Server Error" });
