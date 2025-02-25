@@ -616,40 +616,39 @@ async function run() {
 
     app.post("/create-payment", async (req, res) => {
       try {
-        const { amount, customerEmail } = req.body;
-
-        // Step 1: Retrieve the cart items from the carts collection
+        const { amount, customerEmail, customerCountry, customerPhone, customerPostcode, customerCurrency } = req.body;
+    
+        // Step 1: Retrieve the cart items
         const cartItems = await cartCollection.find({ email: customerEmail }).toArray();
         if (cartItems.length === 0) {
           return res.status(404).send({ message: 'No cart items found for the user.' });
         }
-
-        // Step 2: Extract all tempIds, types, and records, and calculate the total amount
+    
+        // Step 2: Extract cart details and calculate the total amount
         const tempIds = cartItems.map(item => item.tempId);
         const types = cartItems.map(item => item.type);
         const records = cartItems.map(item => item.records || []).flat();
-
-        // Total amount in USD
-        const totalAmountInUSD = cartItems.reduce((total, item) => total + item.price, 0);
-
-        // Step 3: Fetch USD to BDT exchange rate from Open Exchange Rates API
-        const exchangeRateApiUrl = `https://v6.exchangerate-api.com/v6/${process.env.EXCHANGE_RATE}/latest/USD`;
+        const totalAmountInLocalCurrency = cartItems.reduce((total, item) => total + item.price, 0);
+    
+        // Step 3: Dynamic Currency to BDT Conversion
+        const baseCurrency = customerCurrency || "USD"; // Default to USD if not provided
+        const exchangeRateApiUrl = `https://v6.exchangerate-api.com/v6/${process.env.EXCHANGE_RATE}/latest/${baseCurrency}`;
         const exchangeRateResponse = await axios.get(exchangeRateApiUrl);
-
-        // Get the exchange rate for USD to BDT from the API response
-        const exchangeRate = exchangeRateResponse.data.conversion_rates.BDT;
-
+    
+        // Get the exchange rate for the customer's currency to BDT
+        const exchangeRate = exchangeRateResponse.data.conversion_rates?.BDT;
+    
         if (!exchangeRate) {
           return res.status(500).send({ message: 'Unable to fetch exchange rate.' });
         }
-
-        // Convert the total amount from USD to BDT
-        const totalAmountInBDT = totalAmountInUSD * exchangeRate;
-
+    
+        // Convert the total amount from the customer's currency to BDT
+        const totalAmountInBDT = totalAmountInLocalCurrency * exchangeRate;
+    
         // Initialize SSLCommerz
-        const sslcommerz = new SSLCommerzPayment(store_id, store_passwd, is_live);
-
-        // Prepare data for the payment request
+        const sslcommerz = new SSLCommerzPayment(process.env.STORE_ID, process.env.STORE_PASS, false);
+    
+        // Prepare data for the payment request with dynamic fields
         const data = {
           store_id: process.env.STORE_ID,
           store_passwd: process.env.STORE_PASS,
@@ -659,14 +658,14 @@ async function run() {
           fail_url: "http://localhost:5000/fail-payment",
           cancel_url: "http://localhost:5000/cancel-payment",
           cus_email: customerEmail,
-          cus_add1: "Dhaka",
-          cus_add2: "Dhaka",
-          cus_city: "Dhaka",
-          cus_state: "Dhaka",
-          cus_postcode: 1000,
-          cus_country: "Bangladesh",
-          cus_phone: "01711111111",
-          cus_fax: "01711111111",
+          cus_add1: "Address Line 1",
+          cus_add2: "Address Line 2",
+          cus_city: "City",
+          cus_state: "State",
+          cus_postcode: customerPostcode || "0000",
+          cus_country: customerCountry || "Bangladesh",
+          cus_phone: customerPhone || "01700000000",
+          cus_fax: customerPhone || "01700000000",
           shipping_method: "NO",
           product_name: "Template",
           product_category: "Design",
@@ -677,31 +676,32 @@ async function run() {
           value_c: "ref003_C",
           value_d: "ref004_D",
         };
-
+    
         // Step 4: Initialize the payment using SSLCommerz
         const apiResponse = await sslcommerz.init(data);
-
+    
         if (apiResponse?.GatewayPageURL) {
           const saveData = {
             cus_email: customerEmail,
             paymentId: data.tran_id,
-            amount: totalAmountInUSD, // Save in USD for your reference
+            amount: totalAmountInLocalCurrency,
+            currency: baseCurrency,
             status: "pending",
             tempId: tempIds,
             types: types,
-            records: records, // Include records here
+            records: records,
           };
-
+    
           // Save payment record to the database
           await paymentCollection.insertOne(saveData);
-
+    
           return res.send({ paymentUrl: apiResponse.GatewayPageURL });
         } else {
           return res.status(500).send({ message: 'Payment initialization failed.' });
         }
       } catch (error) {
         console.error("Error creating payment:", error);
-
+    
         if (!res.headersSent) {
           return res.status(500).send({ message: "Internal Server Error", error: error.message });
         }
