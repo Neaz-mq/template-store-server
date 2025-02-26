@@ -617,46 +617,47 @@ async function run() {
     app.post("/create-payment", async (req, res) => {
       try {
         const { amount, customerEmail, customerCountry, customerPhone, customerPostcode, customerCurrency } = req.body;
-    
+
         // Step 1: Retrieve the cart items
         const cartItems = await cartCollection.find({ email: customerEmail }).toArray();
         if (cartItems.length === 0) {
           return res.status(404).send({ message: 'No cart items found for the user.' });
         }
-    
+
         // Step 2: Extract cart details and calculate the total amount
         const tempIds = cartItems.map(item => item.tempId);
         const types = cartItems.map(item => item.type);
         const records = cartItems.map(item => item.records || []).flat();
         const totalAmountInLocalCurrency = cartItems.reduce((total, item) => total + item.price, 0);
-    
+
         // Step 3: Dynamic Currency to BDT Conversion
         const baseCurrency = customerCurrency || "USD"; // Default to USD if not provided
         const exchangeRateApiUrl = `https://v6.exchangerate-api.com/v6/${process.env.EXCHANGE_RATE}/latest/${baseCurrency}`;
         const exchangeRateResponse = await axios.get(exchangeRateApiUrl);
-    
+
         // Get the exchange rate for the customer's currency to BDT
         const exchangeRate = exchangeRateResponse.data.conversion_rates?.BDT;
-    
+
         if (!exchangeRate) {
           return res.status(500).send({ message: 'Unable to fetch exchange rate.' });
         }
-    
+
         // Convert the total amount from the customer's currency to BDT
         const totalAmountInBDT = totalAmountInLocalCurrency * exchangeRate;
-    
+
         // Initialize SSLCommerz
         const sslcommerz = new SSLCommerzPayment(process.env.STORE_ID, process.env.STORE_PASS, false);
-    
+
         // Prepare data for the payment request with dynamic fields
         const data = {
           store_id: process.env.STORE_ID,
           store_passwd: process.env.STORE_PASS,
-          total_amount: totalAmountInBDT, // Send amount in BDT
+          total_amount: totalAmountInBDT,
           tran_id: new Date().getTime().toString(),
           success_url: "http://localhost:5000/success-payment",
           fail_url: "http://localhost:5000/fail-payment",
           cancel_url: "http://localhost:5000/cancel-payment",
+          ipn_url: "http://localhost:5000/ipn-payment", // Add IPN URL here
           cus_email: customerEmail,
           cus_add1: "Address Line 1",
           cus_add2: "Address Line 2",
@@ -676,10 +677,10 @@ async function run() {
           value_c: "ref003_C",
           value_d: "ref004_D",
         };
-    
+
         // Step 4: Initialize the payment using SSLCommerz
         const apiResponse = await sslcommerz.init(data);
-    
+
         if (apiResponse?.GatewayPageURL) {
           const saveData = {
             cus_email: customerEmail,
@@ -691,17 +692,17 @@ async function run() {
             types: types,
             records: records,
           };
-    
+
           // Save payment record to the database
           await paymentCollection.insertOne(saveData);
-    
+
           return res.send({ paymentUrl: apiResponse.GatewayPageURL });
         } else {
           return res.status(500).send({ message: 'Payment initialization failed.' });
         }
       } catch (error) {
         console.error("Error creating payment:", error);
-    
+
         if (!res.headersSent) {
           return res.status(500).send({ message: "Internal Server Error", error: error.message });
         }
@@ -737,7 +738,6 @@ async function run() {
         res.status(500).send({ message: "Internal Server Error" });
       }
     });
-
 
     app.get('/payments/:email', async (req, res) => {
       try {
@@ -802,6 +802,41 @@ async function run() {
       }
     });
 
+    app.post("/ipn-payment", async (req, res) => {
+      try {
+          const ipnData = req.body;
+   
+          console.log("IPN Payment data received:", ipnData);
+   
+          const filter = { paymentId: ipnData.tran_id };
+          const validationApiUrl = `https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php?val_id=${ipnData.val_id}&store_id=${process.env.STORE_ID}&store_passwd=${process.env.STORE_PASS}&v=1&format=json`;
+   
+          const validationResponse = await axios.get(validationApiUrl);
+   
+          if (validationResponse.data.status === "VALID" && validationResponse.data.tran_id === ipnData.tran_id) {
+              await paymentCollection.updateOne(filter, {
+                  $set: {
+                      status: "success",
+                      paymentResponse: validationResponse.data,
+                  },
+              });
+              await cartCollection.deleteMany({ email: ipnData.cus_email });
+          } else {
+              await paymentCollection.updateOne(filter, {
+                  $set: {
+                      status: "failed",
+                      paymentResponse: validationResponse.data,
+                  },
+              });
+          }
+   
+          res.status(200).send("IPN received successfully");
+      } catch (error) {
+          console.error("Error handling IPN:", error);
+          res.status(500).send({ message: "Internal Server Error" });
+      }
+   });
+   
 
     app.get('/payments', async (req, res) => {
       try {
