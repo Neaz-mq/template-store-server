@@ -654,10 +654,10 @@ async function run() {
           store_passwd: process.env.STORE_PASS,
           total_amount: totalAmountInBDT,
           tran_id: new Date().getTime().toString(),
-          success_url: "http://localhost:5000/success-payment",
-          fail_url: "http://localhost:5000/fail-payment",
-          cancel_url: "http://localhost:5000/cancel-payment",
-          ipn_url: "http://localhost:5000/ipn-payment", // Add IPN URL here
+          success_url: "https://template-store-server.vercel.app/success-payment",
+          fail_url: "https://template-store-server.vercel.app/fail-payment",
+          cancel_url: "https://template-store-server.vercel.app/cancel-payment",
+          ipn_url: "https://template-store-server.vercel.app/ipn-payment", // Add IPN URL here
           cus_email: customerEmail,
           cus_add1: "Address Line 1",
           cus_add2: "Address Line 2",
@@ -732,7 +732,7 @@ async function run() {
         // Clear the user's cart after successful payment
         await cartCollection.deleteMany({ email: successData.cus_email });
 
-        res.redirect('http://localhost:5173/dashboard/paymentHistory?fromPaymentSuccess=true');
+        res.redirect('https://prographr.com/dashboard/paymentHistory?fromPaymentSuccess=true');
       } catch (error) {
         console.error("Error updating payment status:", error);
         res.status(500).send({ message: "Internal Server Error" });
@@ -770,7 +770,7 @@ async function run() {
 
         // No need to clear the user's cart in case of a failed payment
 
-        res.redirect("http://localhost:5173/dashboard/fail-payment");
+        res.redirect("https://prographr.com/dashboard/fail-payment");
       } catch (error) {
         console.error("Error updating payment status:", error);
         res.status(500).send({ message: "Internal Server Error" });
@@ -795,7 +795,7 @@ async function run() {
 
         // No need to clear the user's cart in case of a canceled payment
 
-        res.redirect("http://localhost:5173/dashboard/cancel-payment")
+        res.redirect("https://prographr.com/dashboard/cancel-payment")
       } catch (error) {
         console.error("Error updating payment status:", error);
         res.status(500).send({ message: "Internal Server Error" });
@@ -805,37 +805,75 @@ async function run() {
     app.post("/ipn-payment", async (req, res) => {
       try {
           const ipnData = req.body;
-   
           console.log("IPN Payment data received:", ipnData);
-   
-          const filter = { paymentId: ipnData.tran_id };
-          const validationApiUrl = `https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php?val_id=${ipnData.val_id}&store_id=${process.env.STORE_ID}&store_passwd=${process.env.STORE_PASS}&v=1&format=json`;
-   
-          const validationResponse = await axios.get(validationApiUrl);
-   
-          if (validationResponse.data.status === "VALID" && validationResponse.data.tran_id === ipnData.tran_id) {
-              await paymentCollection.updateOne(filter, {
-                  $set: {
-                      status: "success",
-                      paymentResponse: validationResponse.data,
-                  },
-              });
-              await cartCollection.deleteMany({ email: ipnData.cus_email });
-          } else {
-              await paymentCollection.updateOne(filter, {
-                  $set: {
-                      status: "failed",
-                      paymentResponse: validationResponse.data,
-                  },
-              });
+  
+          if (!ipnData.tran_id || !ipnData.val_id) {
+              return res.status(400).send({ message: "Missing required IPN data" });
           }
-   
-          res.status(200).send("IPN received successfully");
+  
+          const filter = { paymentId: ipnData.tran_id };
+          const validationApiUrl = `${process.env.SSL_VALIDATION_URL}?val_id=${ipnData.val_id}&store_id=${process.env.STORE_ID}&store_passwd=${process.env.STORE_PASS}&v=1&format=json`;
+  
+          // Validate payment
+          let validationResponse;
+          try {
+              validationResponse = await axios.get(validationApiUrl, { timeout: 5000 });
+              if (!validationResponse.data) {
+                  console.error("Empty response from validation API:", validationResponse);
+                  return res.status(500).send({ message: "Empty validation response" });
+              }
+          } catch (error) {
+              console.error("Error validating payment:", error.response?.data || error.message);
+              return res.status(200).send({ message: "IPN received, but validation failed", error: error.message });
+          }
+  
+          // Process successful payment
+          if (validationResponse.data.status === "VALID" && validationResponse.data.tran_id === ipnData.tran_id) {
+              try {
+                  await paymentCollection.updateOne(filter, {
+                      $set: {
+                          status: "success",
+                          paymentResponse: validationResponse.data,
+                      },
+                  });
+  
+                  if (ipnData.cus_email) {
+                      await cartCollection.deleteMany({ email: ipnData.cus_email });
+                  } else {
+                      console.warn("No customer email found, skipping cart deletion.");
+                  }
+              } catch (dbError) {
+                  console.error("Error updating database:", dbError);
+                  return res.status(500).send({ message: "Database update failed", error: dbError.message });
+              }
+  
+              return res.status(200).send({ message: "IPN processed successfully" });
+          } else {
+              // Process failed payment but prevent duplicate writes
+              const existingPayment = await paymentCollection.findOne(filter);
+              if (existingPayment?.status === "pending") {
+                  try {
+                      await paymentCollection.updateOne(filter, {
+                          $set: {
+                              status: "failed",
+                              paymentResponse: validationResponse.data,
+                          },
+                      });
+                  } catch (dbError) {
+                      console.error("Error updating failed payment:", dbError);
+                  }
+              }
+  
+              return res.status(200).send({ message: "IPN received, but validation failed" });
+          }
       } catch (error) {
           console.error("Error handling IPN:", error);
-          res.status(500).send({ message: "Internal Server Error" });
+          return res.status(200).send({ message: "IPN received, but internal server error", error: error.message });
       }
-   });
+  });
+  
+  
+  
    
 
     app.get('/payments', async (req, res) => {
