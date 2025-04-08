@@ -407,18 +407,22 @@ async function run() {
     });
 
 
+
     // Exclusive Template
 
     app.get('/exclusive', async (req, res) => {
-      const result = await exclusiveCollection.find().toArray();
+      const result = await exclusiveCollection.find().sort({ _id: -1 }).toArray(); // Sorts by `_id` in descending order
       res.send(result);
     });
 
+  
+    
     app.post('/exclusive', verifyToken, verifyAdmin, async (req, res) => {
       const temp = req.body;
       const result = await exclusiveCollection.insertOne(temp);
       res.send(result);
     });
+
 
     app.get('/exclusive/:id', async (req, res) => {
       const id = req.params.id;
@@ -430,6 +434,8 @@ async function run() {
       const result = await exclusiveCollection.findOne(query, options);
       res.send(result);
     });
+
+    
 
     app.delete('/exclusive/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
