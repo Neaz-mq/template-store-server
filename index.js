@@ -292,7 +292,7 @@ async function run() {
     // free template related apis
 
     app.get('/free', async (req, res) => {
-      const result = await freeCollection.find().toArray();
+      const result = await freeCollection.find().sort({ _id: -1 }).toArray(); // Sorts by `_id` in descending order
       res.send(result);
     });
 
@@ -306,7 +306,7 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const options = {
-        projection: { type: 1, category: 1, price: 1, image: 1, description: 1, specifications: 1, product: 1, documents: 1, picture: 1, records: 1 },
+        projection: { type: 1, category: 1, price: 1, image: 1, description: 1, specifications: 1, product: 1, documents: 1, picture: 1, records: 1, regular: 1 },
       };
       const result = await freeCollection.findOne(query, options);
       res.send(result);
@@ -334,7 +334,8 @@ async function run() {
           product: temp.product,
           documents: temp.documents,
           picture: temp.picture,
-          records: temp.records
+          records: temp.records,
+          regular: temp.regular
         }
       }
       const result = await freeCollection.updateOne(filter, updatedDoc)
