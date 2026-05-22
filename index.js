@@ -722,7 +722,7 @@ async function run() {
       try {
         const successData = req.body;
 
-        console.log("Payment success data:", successData); // Log the response data
+        console.log("Payment success data:", successData); 
 
         // Assuming successData contains `tran_id` and other fields
         const filter = { paymentId: successData.tran_id };
