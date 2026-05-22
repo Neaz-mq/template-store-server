@@ -739,7 +739,7 @@ async function run() {
         // Clear the user's cart after successful payment
         await cartCollection.deleteMany({ email: successData.cus_email });
 
-        res.redirect('https://prographr.com/dashboard/paymentHistory?fromPaymentSuccess=true');
+        res.redirect('https://prographr-templates.netlify.app/dashboard/paymentHistory?fromPaymentSuccess=true');
       } catch (error) {
         console.error("Error updating payment status:", error);
         res.status(500).send({ message: "Internal Server Error" });
@@ -777,7 +777,7 @@ async function run() {
 
         // No need to clear the user's cart in case of a failed payment
 
-        res.redirect("https://prographr.com/dashboard/fail-payment");
+        res.redirect("https://prographr-templates.netlify.app/dashboard/fail-payment");
       } catch (error) {
         console.error("Error updating payment status:", error);
         res.status(500).send({ message: "Internal Server Error" });
@@ -802,7 +802,7 @@ async function run() {
 
         // No need to clear the user's cart in case of a canceled payment
 
-        res.redirect("https://prographr.com/dashboard/cancel-payment")
+        res.redirect("https://prographr-templates.netlify.app/dashboard/cancel-payment")
       } catch (error) {
         console.error("Error updating payment status:", error);
         res.status(500).send({ message: "Internal Server Error" });
