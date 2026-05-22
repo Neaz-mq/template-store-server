@@ -729,8 +729,7 @@ async function run() {
         const updateDoc = {
           $set: {
             status: "success",
-            paymentResponse: successData, // Ensure this contains all relevant info
-            // Save the customer email
+            paymentResponse: successData, 
           },
         };
 
